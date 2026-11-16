@@ -1,0 +1,277 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Player account profile, privacy preferences, virtual wallet, and unlocked achievements.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Authenticated Firebase UID owning this profile."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Account display name."
+        },
+        "leaderboardAlias": {
+          "type": "string",
+          "description": "Public or pseudonymous alias shown on leaderboards."
+        },
+        "showOnLeaderboard": {
+          "type": "boolean",
+          "description": "Privacy toggle controlling whether user scores appear on the global leaderboard."
+        },
+        "anonymousLeaderboard": {
+          "type": "boolean",
+          "description": "Privacy toggle to mask display name behind a quiet chronicler alias."
+        },
+        "autoCloudSync": {
+          "type": "boolean",
+          "description": "Whether life progress automatically syncs to Firestore."
+        },
+        "showOptionalEndOfLifeAds": {
+          "type": "boolean",
+          "description": "Whether optional end-of-life supporter reward cards are displayed."
+        },
+        "sparkles": {
+          "type": "integer",
+          "description": "Virtual currency earned from live streaming and optional life milestones."
+        },
+        "totalLivesPlayed": {
+          "type": "integer",
+          "description": "Total completed or started lives across platforms."
+        },
+        "unlockedAchievementIds": {
+          "type": "array",
+          "description": "Bounded list of unlocked achievement identifiers."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written via FieldValue.serverTimestamp() on creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written via FieldValue.serverTimestamp() on update."
+        }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "leaderboardAlias",
+        "showOnLeaderboard",
+        "anonymousLeaderboard",
+        "autoCloudSync",
+        "showOptionalEndOfLifeAds",
+        "sparkles",
+        "totalLivesPlayed",
+        "unlockedAchievementIds",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "LifeSave": {
+      "title": "LifeSave",
+      "description": "Complete cross-platform save state for an active or completed life simulation in Journal.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase UID."
+        },
+        "characterName": {
+          "type": "string",
+          "description": "Character full name."
+        },
+        "birthplace": {
+          "type": "string",
+          "description": "City and country of birth."
+        },
+        "birthYear": {
+          "type": "integer",
+          "description": "Starting historical year."
+        },
+        "currentAge": {
+          "type": "integer",
+          "description": "Current simulated age in years."
+        },
+        "isAlive": {
+          "type": "boolean",
+          "description": "Whether the character is still alive."
+        },
+        "legacyScore": {
+          "type": "integer",
+          "description": "Computed overall legacy score."
+        },
+        "netWorth": {
+          "type": "integer",
+          "description": "Accumulated wealth in virtual dollars."
+        },
+        "followers": {
+          "type": "integer",
+          "description": "Social media follower count."
+        },
+        "careerTitle": {
+          "type": "string",
+          "description": "Current or peak occupation title."
+        },
+        "epitaph": {
+          "type": "string",
+          "description": "Closing life reflection written upon passing."
+        },
+        "trait": {
+          "type": "string",
+          "description": "Chosen temperament trait."
+        },
+        "pronouns": {
+          "type": "string",
+          "description": "Character pronouns."
+        },
+        "stats": {
+          "type": "object",
+          "description": "Map of core life attributes (health, happiness, intellect, appearance, creativity, karma)."
+        },
+        "appearance": {
+          "type": "object",
+          "description": "Map of character avatar customization options."
+        },
+        "socialChannel": {
+          "type": "object",
+          "description": "Map of influencer channel handle, niche, tier, stream count, and gear level."
+        },
+        "relationships": {
+          "type": "array",
+          "description": "Bounded list of relationship state maps."
+        },
+        "recentEntries": {
+          "type": "array",
+          "description": "Bounded list of chronological journal entry maps."
+        },
+        "achievedIds": {
+          "type": "array",
+          "description": "Bounded list of achievements unlocked during this life."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written via FieldValue.serverTimestamp() on creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written via FieldValue.serverTimestamp() on update."
+        }
+      },
+      "required": [
+        "userId",
+        "characterName",
+        "birthplace",
+        "birthYear",
+        "currentAge",
+        "isAlive",
+        "legacyScore",
+        "netWorth",
+        "followers",
+        "careerTitle",
+        "epitaph",
+        "trait",
+        "pronouns",
+        "stats",
+        "appearance",
+        "socialChannel",
+        "relationships",
+        "recentEntries",
+        "achievedIds",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "LeaderboardEntry": {
+      "title": "LeaderboardEntry",
+      "description": "Privacy-safe global leaderboard record showcasing a player's best life legacy.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase UID."
+        },
+        "leaderboardName": {
+          "type": "string",
+          "description": "Non-PII alias or masked name."
+        },
+        "characterName": {
+          "type": "string",
+          "description": "Name of the character who achieved this legacy."
+        },
+        "careerTitle": {
+          "type": "string",
+          "description": "Peak career or creator title."
+        },
+        "legacyScore": {
+          "type": "integer",
+          "description": "Computed legacy score."
+        },
+        "netWorth": {
+          "type": "integer",
+          "description": "Final or peak net worth."
+        },
+        "followers": {
+          "type": "integer",
+          "description": "Peak social media followers."
+        },
+        "ageReached": {
+          "type": "integer",
+          "description": "Age reached in this life."
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "True only when the user has opted into global leaderboard visibility."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written via FieldValue.serverTimestamp() on creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp written via FieldValue.serverTimestamp() on update."
+        }
+      },
+      "required": [
+        "userId",
+        "leaderboardName",
+        "characterName",
+        "careerTitle",
+        "legacyScore",
+        "netWorth",
+        "followers",
+        "ageReached",
+        "isPublic",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProfile"
+      },
+      "description": "Private user profile, privacy settings, wallet, and achievement progress."
+    },
+    "/users/{userId}/lives/{lifeId}": {
+      "schema": {
+        "$ref": "#/entities/LifeSave"
+      },
+      "description": "User-owned life simulation saves for cross-platform resume and legacy archive."
+    },
+    "/leaderboard/{entryId}": {
+      "schema": {
+        "$ref": "#/entities/LeaderboardEntry"
+      },
+      "description": "Global opt-in leaderboard entries keyed by owner UID."
+    }
+  }
+}

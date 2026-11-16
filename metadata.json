@@ -1,0 +1,6 @@
+{
+  "name": "Journal",
+  "description": "Minimalist life simulation game from birth to legacy with careers, relationships, social streaming, cloud saves, and leaderboards.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,221 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net: deny all reads and writes by default
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isBoundedString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    function isValidUserProfile(data) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             isBoundedString(data.displayName, 1, 60) &&
+             isBoundedString(data.leaderboardAlias, 1, 40) &&
+             data.showOnLeaderboard is bool &&
+             data.anonymousLeaderboard is bool &&
+             data.autoCloudSync is bool &&
+             data.showOptionalEndOfLifeAds is bool &&
+             data.sparkles is int && data.sparkles >= 0 && data.sparkles <= 100000000 &&
+             data.totalLivesPlayed is int && data.totalLivesPlayed >= 0 && data.totalLivesPlayed <= 100000 &&
+             data.unlockedAchievementIds is list &&
+             data.unlockedAchievementIds.size() <= 50 &&
+             (data.unlockedAchievementIds.size() == 0 || data.unlockedAchievementIds[0] is string);
+    }
+
+    function isValidLifeSave(data) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             isBoundedString(data.characterName, 1, 80) &&
+             isBoundedString(data.birthplace, 1, 80) &&
+             data.birthYear is int && data.birthYear >= 1900 && data.birthYear <= 2100 &&
+             data.currentAge is int && data.currentAge >= 0 && data.currentAge <= 130 &&
+             data.isAlive is bool &&
+             data.legacyScore is int && data.legacyScore >= 0 && data.legacyScore <= 100000000 &&
+             data.netWorth is int && data.netWorth >= -100000000 && data.netWorth <= 1000000000 &&
+             data.followers is int && data.followers >= 0 && data.followers <= 1000000000 &&
+             isBoundedString(data.careerTitle, 0, 80) &&
+             isBoundedString(data.epitaph, 0, 300) &&
+             isBoundedString(data.trait, 1, 40) &&
+             isBoundedString(data.pronouns, 1, 30) &&
+             data.stats is map &&
+             data.appearance is map &&
+             data.socialChannel is map &&
+             data.relationships is list && data.relationships.size() <= 40 &&
+             data.recentEntries is list && data.recentEntries.size() <= 150 &&
+             data.achievedIds is list && data.achievedIds.size() <= 50;
+    }
+
+    function isValidLeaderboardEntry(data) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             isBoundedString(data.leaderboardName, 1, 50) &&
+             isBoundedString(data.characterName, 1, 80) &&
+             isBoundedString(data.careerTitle, 0, 80) &&
+             data.legacyScore is int && data.legacyScore >= 0 && data.legacyScore <= 100000000 &&
+             data.netWorth is int && data.netWorth >= -100000000 && data.netWorth <= 1000000000 &&
+             data.followers is int && data.followers >= 0 && data.followers <= 1000000000 &&
+             data.ageReached is int && data.ageReached >= 0 && data.ageReached <= 130 &&
+             data.isPublic is bool;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'displayName', 'leaderboardAlias',
+                         'showOnLeaderboard', 'anonymousLeaderboard',
+                         'autoCloudSync', 'showOptionalEndOfLifeAds',
+                         'sparkles', 'totalLivesPlayed', 'unlockedAchievementIds',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'leaderboardAlias',
+                         'showOnLeaderboard', 'anonymousLeaderboard',
+                         'autoCloudSync', 'showOptionalEndOfLifeAds',
+                         'sparkles', 'totalLivesPlayed', 'unlockedAchievementIds',
+                         'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidTimestamp(incoming().createdAt) &&
+                       isValidTimestamp(incoming().updatedAt) &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidTimestamp(incoming().updatedAt) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'displayName', 'leaderboardAlias',
+                         'showOnLeaderboard', 'anonymousLeaderboard',
+                         'autoCloudSync', 'showOptionalEndOfLifeAds',
+                         'sparkles', 'totalLivesPlayed', 'unlockedAchievementIds',
+                         'updatedAt'
+                       ]);
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /lives/{lifeId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(lifeId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(lifeId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'characterName', 'birthplace', 'birthYear',
+                           'currentAge', 'isAlive', 'legacyScore', 'netWorth',
+                           'followers', 'careerTitle', 'epitaph', 'trait', 'pronouns',
+                           'stats', 'appearance', 'socialChannel',
+                           'relationships', 'recentEntries', 'achievedIds',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'characterName', 'birthplace', 'birthYear',
+                           'currentAge', 'isAlive', 'legacyScore', 'netWorth',
+                           'followers', 'careerTitle', 'epitaph', 'trait', 'pronouns',
+                           'stats', 'appearance', 'socialChannel',
+                           'relationships', 'recentEntries', 'achievedIds',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidTimestamp(incoming().createdAt) &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         isValidLifeSave(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(userId) &&
+                         isValidId(lifeId) &&
+                         isValidLifeSave(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         isValidTimestamp(incoming().updatedAt) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'characterName', 'birthplace', 'birthYear',
+                           'currentAge', 'isAlive', 'legacyScore', 'netWorth',
+                           'followers', 'careerTitle', 'epitaph', 'trait', 'pronouns',
+                           'stats', 'appearance', 'socialChannel',
+                           'relationships', 'recentEntries', 'achievedIds',
+                           'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(lifeId);
+      }
+    }
+
+    match /leaderboard/{entryId} {
+      allow get: if isSignedIn() &&
+                    isValidId(entryId) &&
+                    (entryId == request.auth.uid || (resource != null && existing().isPublic == true));
+
+      allow list: if isSignedIn() && existing().isPublic == true;
+
+      allow create: if isSignedIn() &&
+                       isValidId(entryId) &&
+                       entryId == request.auth.uid &&
+                       incoming().keys().hasAll([
+                         'userId', 'leaderboardName', 'characterName', 'careerTitle',
+                         'legacyScore', 'netWorth', 'followers', 'ageReached',
+                         'isPublic', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'leaderboardName', 'characterName', 'careerTitle',
+                         'legacyScore', 'netWorth', 'followers', 'ageReached',
+                         'isPublic', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidTimestamp(incoming().createdAt) &&
+                       isValidTimestamp(incoming().updatedAt) &&
+                       isValidLeaderboardEntry(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(entryId) &&
+                       entryId == request.auth.uid &&
+                       existing().userId == request.auth.uid &&
+                       isValidLeaderboardEntry(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       isValidTimestamp(incoming().updatedAt) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'leaderboardName', 'characterName', 'careerTitle',
+                         'legacyScore', 'netWorth', 'followers', 'ageReached',
+                         'isPublic', 'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() &&
+                       isValidId(entryId) &&
+                       entryId == request.auth.uid &&
+                       existing().userId == request.auth.uid;
+    }
+  }
+}
