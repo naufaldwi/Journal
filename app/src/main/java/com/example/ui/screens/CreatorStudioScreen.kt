@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -36,6 +37,9 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -78,6 +82,7 @@ fun CreatorStudioScreen(
     onUpgradeGear: () -> Unit
 ) {
     val ch = life.socialChannel
+    var selectedSection by remember { mutableIntStateOf(0) }
     var handleInput by remember(ch.handle) { mutableStateOf(ch.handle) }
     var merchNameInput by remember { mutableStateOf(ch.merchName) }
     var showLiveStreamModal by remember { mutableStateOf(false) }
@@ -88,317 +93,363 @@ fun CreatorStudioScreen(
             .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.TopCenter
     ) {
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .widthIn(max = 600.dp)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(22.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                val tabs = listOf("Live", "Channel", "Monetize")
+                tabs.forEachIndexed { idx, label ->
+                    SegmentedButton(
+                        selected = selectedSection == idx,
+                        onClick = { selectedSection = idx },
+                        shape = SegmentedButtonDefaults.itemShape(index = idx, count = tabs.size),
+                        modifier = Modifier.testTag("studio_tab_$idx")
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.img_stream_studio),
-                            contentDescription = "Cozy creator streaming desk",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(145.dp)
-                                .clip(RoundedCornerShape(16.dp)),
-                            contentScale = ContentScale.Crop
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(ch.handle, style = MaterialTheme.typography.headlineMedium)
-                                Text(
-                                    "${ch.niche.label} · ${ch.niche.tagline}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Surface(
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text(
-                                    "$sparkles ✦",
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                                )
-                            }
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            StudioMetricChip("Followers", "${ch.followers}", Modifier.weight(1f))
-                            StudioMetricChip("Reputation", "${ch.reputation}%", Modifier.weight(1f))
-                            StudioMetricChip("Streams", "${ch.totalStreams}", Modifier.weight(1f))
-                            StudioMetricChip("Gear", "Lv ${ch.gearLevel}/5", Modifier.weight(1f))
-                        }
-
-                        Button(
-                            onClick = { showLiveStreamModal = true },
-                            enabled = life.isAlive && life.currentAge >= 13,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(52.dp)
-                                .testTag("go_live_button")
-                        ) {
-                            Icon(Icons.Outlined.LiveTv, contentDescription = null, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.size(8.dp))
-                            Text(
-                                text = if (life.currentAge < 13) "Streaming Unlocks at Age 13" else "Go Live for Virtual Currency (✦ & $)",
-                                style = MaterialTheme.typography.labelLarge
-                            )
-                        }
+                        Text(label, maxLines = 1)
                     }
                 }
             }
 
-            // Niche & Handle Customization
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Text("Channel Niche & Handle", style = MaterialTheme.typography.titleMedium)
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = handleInput,
-                                onValueChange = { handleInput = it.take(28) },
-                                label = { Text("Creator Handle") },
-                                singleLine = true,
-                                modifier = Modifier.weight(1f)
-                            )
-                            OutlinedButton(
-                                onClick = { onUpdateChannel(handleInput, ch.niche) },
-                                enabled = life.isAlive
-                            ) {
-                                Text("Save")
-                            }
-                        }
-                        Row(
-                            modifier = Modifier.horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            SocialNiche.entries.forEach { niche ->
-                                FilterChip(
-                                    selected = ch.niche == niche,
-                                    onClick = { onUpdateChannel(handleInput, niche) },
-                                    label = { Text(niche.label) }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Online Trends & Community Management
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(Icons.AutoMirrored.Outlined.TrendingUp, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
-                            Column {
-                                Text("Trending Now: ${ch.currentTrendTitle}", style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    "Matches ${ch.currentTrendNiche.label} (+2.6x boost if aligned!)",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(
-                                onClick = { onPostContent(true) },
-                                enabled = life.isAlive && life.currentAge >= 13,
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(14.dp)
-                            ) {
-                                Text("Ride Trend")
-                            }
-                            OutlinedButton(
-                                onClick = { onPostContent(false) },
-                                enabled = life.isAlive && life.currentAge >= 13,
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(14.dp)
-                            ) {
-                                Text("Niche Post")
-                            }
-                        }
-
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                        Text("Follower Interactions", style = MaterialTheme.typography.titleSmall)
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = { onInteractFollowers("letters") },
-                                enabled = life.isAlive && life.currentAge >= 13
-                            ) {
-                                Text("Reply to Superfans")
-                            }
-                            OutlinedButton(
-                                onClick = { onInteractFollowers("poll") },
-                                enabled = life.isAlive && life.currentAge >= 13
-                            ) {
-                                Text("Community Poll")
-                            }
-                            OutlinedButton(
-                                onClick = { onInteractFollowers("calm_reply") },
-                                enabled = life.isAlive && life.currentAge >= 13
-                            ) {
-                                Text("Calm Q&A Thread")
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Monetization: Sponsorships, Merch & Studio Gear
-            item {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(Icons.Outlined.Storefront, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                            Text("Monetization & Studio Gear", style = MaterialTheme.typography.titleMedium)
-                        }
-
-                        // Merch Line
-                        if (ch.merchLaunched) {
-                            Surface(
-                                color = MaterialTheme.colorScheme.secondaryContainer,
-                                shape = RoundedCornerShape(12.dp),
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                when (selectedSection) {
+                    0 -> {
+                        item {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                shape = RoundedCornerShape(22.dp),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(
-                                    text = "Active Merch Line: ${ch.merchName} (Earning recurring royalties each year!)",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    modifier = Modifier.padding(12.dp)
-                                )
-                            }
-                        } else {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                OutlinedTextField(
-                                    value = merchNameInput,
-                                    onValueChange = { merchNameInput = it.take(36) },
-                                    label = { Text("Merch Item Name") },
-                                    singleLine = true,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Button(
-                                    onClick = { onLaunchMerch(merchNameInput) },
-                                    enabled = life.isAlive && ch.followers >= 500
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    Text("Launch ($1.5k)")
+                                    Image(
+                                        painter = painterResource(id = R.drawable.img_stream_studio),
+                                        contentDescription = "Cozy creator streaming desk",
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(140.dp)
+                                            .clip(RoundedCornerShape(16.dp)),
+                                        contentScale = ContentScale.Crop
+                                    )
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text(ch.handle, style = MaterialTheme.typography.titleLarge)
+                                            Text(
+                                                "${ch.niche.label} · Gear Lv ${ch.gearLevel}/5",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.primaryContainer,
+                                            shape = RoundedCornerShape(12.dp)
+                                        ) {
+                                            Text(
+                                                "$sparkles ✦",
+                                                style = MaterialTheme.typography.labelLarge,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        StudioMetricChip("Followers", "${ch.followers}", Modifier.weight(1f))
+                                        StudioMetricChip("Rep", "${ch.reputation}%", Modifier.weight(1f))
+                                        StudioMetricChip("Streams", "${ch.totalStreams}", Modifier.weight(1f))
+                                    }
+
+                                    Button(
+                                        onClick = { showLiveStreamModal = true },
+                                        enabled = life.isAlive && life.currentAge >= 13,
+                                        shape = RoundedCornerShape(16.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(52.dp)
+                                            .testTag("go_live_button")
+                                    ) {
+                                        Icon(Icons.Outlined.LiveTv, contentDescription = null, modifier = Modifier.size(20.dp))
+                                        Spacer(Modifier.size(8.dp))
+                                        Text(
+                                            text = if (life.currentAge < 13) "Streaming Unlocks at Age 13" else "Go Live (Earn ✦ & $)",
+                                            style = MaterialTheme.typography.labelLarge
+                                        )
+                                    }
                                 }
                             }
-                            if (ch.followers < 500) {
-                                Text(
-                                    "Reach 500 followers to unlock your merchandise drop.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                        }
+
+                        item {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(Icons.AutoMirrored.Outlined.TrendingUp, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
+                                        Column {
+                                            Text("Trend: ${ch.currentTrendTitle}", style = MaterialTheme.typography.titleMedium)
+                                            Text(
+                                                "Matches ${ch.currentTrendNiche.label} (+2.6x aligned boost)",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Button(
+                                            onClick = { onPostContent(true) },
+                                            enabled = life.isAlive && life.currentAge >= 13,
+                                            shape = RoundedCornerShape(14.dp),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .defaultMinSize(minHeight = 48.dp)
+                                        ) {
+                                            Text("Ride Trend")
+                                        }
+                                        OutlinedButton(
+                                            onClick = { onPostContent(false) },
+                                            enabled = life.isAlive && life.currentAge >= 13,
+                                            shape = RoundedCornerShape(14.dp),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .defaultMinSize(minHeight = 48.dp)
+                                        ) {
+                                            Text("Niche Post")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    1 -> {
+                        item {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Text("Channel Niche & Handle", style = MaterialTheme.typography.titleMedium)
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedTextField(
+                                            value = handleInput,
+                                            onValueChange = { handleInput = it.take(28) },
+                                            label = { Text("Creator Handle") },
+                                            singleLine = true,
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                        OutlinedButton(
+                                            onClick = { onUpdateChannel(handleInput, ch.niche) },
+                                            enabled = life.isAlive,
+                                            modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                                        ) {
+                                            Text("Save")
+                                        }
+                                    }
+                                    Row(
+                                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        SocialNiche.entries.forEach { niche ->
+                                            FilterChip(
+                                                selected = ch.niche == niche,
+                                                onClick = { onUpdateChannel(handleInput, niche) },
+                                                label = { Text(niche.label) }
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
 
-                        // Sponsorship Deals
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                        Text(
-                            text = if (ch.activeSponsorName.isNotBlank()) {
-                                "Current Sponsor: ${ch.activeSponsorName} ($${ch.annualSponsorIncome}/yr)"
-                            } else {
-                                "Available Brand Sponsorships"
-                            },
-                            style = MaterialTheme.typography.titleSmall
-                        )
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            OutlinedButton(
-                                onClick = { onSignSponsor("Earthwise Linen Co.", 6000, 5) },
-                                enabled = life.isAlive && ch.followers >= 1000
+                        item {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("Earthwise ($6k/yr, +Rep)")
-                            }
-                            OutlinedButton(
-                                onClick = { onSignSponsor("Kopi Nusantara Roasters", 14000, 4) },
-                                enabled = life.isAlive && ch.followers >= 5000
-                            ) {
-                                Text("Roasters ($14k/yr, +Rep)")
-                            }
-                            OutlinedButton(
-                                onClick = { onSignSponsor("Studio Desk Audio", 28000, 3) },
-                                enabled = life.isAlive && ch.followers >= 20000
-                            ) {
-                                Text("Studio Audio ($28k/yr)")
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Text("Follower Interactions", style = MaterialTheme.typography.titleMedium)
+                                    FlowRow(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedButton(
+                                            onClick = { onInteractFollowers("letters") },
+                                            enabled = life.isAlive && life.currentAge >= 13,
+                                            modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                                        ) {
+                                            Text("Reply to Superfans")
+                                        }
+                                        OutlinedButton(
+                                            onClick = { onInteractFollowers("poll") },
+                                            enabled = life.isAlive && life.currentAge >= 13,
+                                            modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                                        ) {
+                                            Text("Community Poll")
+                                        }
+                                        OutlinedButton(
+                                            onClick = { onInteractFollowers("calm_reply") },
+                                            enabled = life.isAlive && life.currentAge >= 13,
+                                            modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                                        ) {
+                                            Text("Calm Q&A Thread")
+                                        }
+                                    }
+                                }
                             }
                         }
+                    }
 
-                        // Gear Upgrade with Virtual Sparkles
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                        val gearCost = ch.gearLevel * 120
-                        OutlinedButton(
-                            onClick = onUpgradeGear,
-                            enabled = life.isAlive && ch.gearLevel < 5,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Outlined.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.size(8.dp))
-                            Text(
-                                if (ch.gearLevel >= 5) "Studio Gear Maxed (Tier 5)"
-                                else "Upgrade Mic & Lighting to Tier ${ch.gearLevel + 1} ($gearCost ✦)"
-                            )
+                    else -> {
+                        item {
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(Icons.Outlined.Storefront, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                        Text("Merchandise & Sponsors", style = MaterialTheme.typography.titleMedium)
+                                    }
+
+                                    if (ch.merchLaunched) {
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.secondaryContainer,
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text(
+                                                text = "Active Merch Line: ${ch.merchName} (Earning annual royalties)",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                modifier = Modifier.padding(12.dp)
+                                            )
+                                        }
+                                    } else {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            OutlinedTextField(
+                                                value = merchNameInput,
+                                                onValueChange = { merchNameInput = it.take(36) },
+                                                label = { Text("Merch Item Name") },
+                                                singleLine = true,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            Button(
+                                                onClick = { onLaunchMerch(merchNameInput) },
+                                                enabled = life.isAlive && ch.followers >= 500,
+                                                modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                                            ) {
+                                                Text("Launch ($1.5k)")
+                                            }
+                                        }
+                                        if (ch.followers < 500) {
+                                            Text(
+                                                "Reach 500 followers to unlock your merchandise drop.",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                    Text(
+                                        text = if (ch.activeSponsorName.isNotBlank()) {
+                                            "Active Sponsor: ${ch.activeSponsorName} ($${ch.annualSponsorIncome}/yr)"
+                                        } else {
+                                            "Brand Sponsorships"
+                                        },
+                                        style = MaterialTheme.typography.titleSmall
+                                    )
+                                    FlowRow(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        OutlinedButton(
+                                            onClick = { onSignSponsor("Earthwise Linen Co.", 6000, 5) },
+                                            enabled = life.isAlive && ch.followers >= 1000,
+                                            modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                                        ) {
+                                            Text("Earthwise ($6k/yr)")
+                                        }
+                                        OutlinedButton(
+                                            onClick = { onSignSponsor("Kopi Nusantara Roasters", 14000, 4) },
+                                            enabled = life.isAlive && ch.followers >= 5000,
+                                            modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                                        ) {
+                                            Text("Roasters ($14k/yr)")
+                                        }
+                                        OutlinedButton(
+                                            onClick = { onSignSponsor("Studio Desk Audio", 28000, 3) },
+                                            enabled = life.isAlive && ch.followers >= 20000,
+                                            modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                                        ) {
+                                            Text("Studio Audio ($28k/yr)")
+                                        }
+                                    }
+
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                    val gearCost = ch.gearLevel * 120
+                                    OutlinedButton(
+                                        onClick = onUpgradeGear,
+                                        enabled = life.isAlive && ch.gearLevel < 5,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .defaultMinSize(minHeight = 48.dp)
+                                    ) {
+                                        Icon(Icons.Outlined.Mic, contentDescription = null, modifier = Modifier.size(18.dp))
+                                        Spacer(Modifier.size(8.dp))
+                                        Text(
+                                            if (ch.gearLevel >= 5) "Studio Gear Maxed (Tier 5)"
+                                            else "Upgrade Gear to Tier ${ch.gearLevel + 1} ($gearCost ✦)"
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }

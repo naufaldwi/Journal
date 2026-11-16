@@ -3,28 +3,32 @@
 ![Platform](https://img.shields.io/badge/Platform-Android%207.0%2B%20(API%2024%2B)-3DDC84?logo=android&logoColor=white)
 ![Language](https://img.shields.io/badge/Kotlin-2.2.10-7F52FF?logo=kotlin&logoColor=white)
 ![UI](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?logo=jetpackcompose&logoColor=white)
-![Latest APK](https://img.shields.io/badge/APK-v1.0.0%20Included-brightgreen)
+![Latest APK](https://img.shields.io/badge/APK-v1.1.0%20Included-brightgreen)
 
-**Journal** is a serene, deep life-simulation game for Android built with Kotlin and Jetpack Compose. Guide characters year-by-year from first breath to legacy across 14 culturally grounded nations—balancing physical & mental wellness, skill mastery, conservatories & universities, fame-driven or classic careers, live streaming, multi-generation family trees, and regional underworld paths.
+**Journal** is a serene, deep life-simulation game for Android built with Kotlin and Jetpack Compose. Designed around a calm **4-tab layout** (**Journal**, **Activities**, **Tree**, **Profile**) with focused submenu pages and bottom sheets, it lets you guide characters year-by-year from first breath to legacy across 14 culturally grounded nations without visual clutter.
+
+> **Disclaimer — Google Login & Firebase:**  
+> You can sign in to **Journal** using your **Google Account** to back up saves and compete on global leaderboards. Account authentication, cloud saves, and leaderboard syncing use **Google Firebase** (**Firebase Authentication** and **Cloud Firestore**). If you prefer not to sign in, you can choose **Play as Guest** anytime to keep all saves 100% locally on your device.
 
 ---
 
 ## Download & Install APK (Android)
 
-A freshly compiled, ready-to-install APK is included right inside this repository:
+A freshly compiled, ready-to-install `v1.1.0` APK is included right inside this repository:
 
-- **Direct APK file:** [`releases/journal-v1.0.0.apk`](releases/journal-v1.0.0.apk)
+- **Direct APK file:** [`releases/journal-v1.1.0.apk`](releases/journal-v1.1.0.apk)
+- **Release Notes:** See [`CHANGELOG.md`](CHANGELOG.md) for the full `v1.1.0` and `v1.0.0` update log.
 - **GitHub Releases:** Visit the **Releases** tab on GitHub for versioned `.apk` downloads and SHA-256 checksums.
 
 ### Sideload Instructions on Android
-1. Download `journal-v1.0.0.apk` (from [`releases/journal-v1.0.0.apk`](releases/journal-v1.0.0.apk) or the **Releases** page) onto your Android phone or tablet (**Android 7.0 / API 24 or higher**).
+1. Download `journal-v1.1.0.apk` (from [`releases/journal-v1.1.0.apk`](releases/journal-v1.1.0.apk) or the **Releases** page) onto your Android phone or tablet (**Android 7.0 / API 24 or higher**).
 2. Tap the downloaded `.apk` file in your browser downloads or **Files** app.
 3. If Android prompts *"For your security, your phone isn't allowed to install unknown apps from this source"*, tap **Settings** and toggle **Allow from this source**.
 4. Tap **Install**, wait a moment, and open **Journal**.
-5. Choose **Sign in with Google** (cloud saves & global leaderboard) or **Play as Guest** (instant offline play stored locally on your device).
+5. Choose **Sign in with Google** (powered by **Firebase** for cloud saves & global leaderboards) or **Play as Guest** (instant offline play stored locally on your device).
 
-> **SHA-256 Checksum (`releases/journal-v1.0.0.apk`):**  
-> `2930466b27d7f2338285f6b8cafece4bb0d82739fdad8e4efc80dca8e8e989df`
+> **SHA-256 Checksum (`releases/journal-v1.1.0.apk`):**  
+> `fb117155de0b59fb046487356bbcf9d8b77013b1f80af24399e1395b6e582bef`
 
 ---
 
@@ -41,32 +45,33 @@ A freshly compiled, ready-to-install APK is included right inside this repositor
 | **Health, Mental Wellness & Era Events** | Track Health, Energy, Fitness, Disease Risk, Happiness, Stress, and Anxiety shaped by diet, exercise, sleep, preventive checkups, therapy, plus periodic random life twists and historical era shifts. |
 | **Non-Negative Cash & Adult Loans** | Cash on hand never goes below `$0`. Minors remain debt-free, while adults (`18+`) can borrow up to `$150,000` (4% annual interest) for tuition, merch, or emergencies and repay flexibly. |
 | **Aging Milestones & Family Tree** | Dynamic character avatar updates, relationship evolution across life stages, an interactive multi-generation **Family Tree** lineage tracker, and **Daily Missions** (unlocked at **Age 13+**) with XP leveling and daily trio bonuses. |
-| **Accounts & Offline Guest Mode** | **Google Sign-In** (via Jetpack Credential Manager + Firebase Auth & Cloud Firestore) or instant offline **Guest Mode** (Jetpack DataStore), with optional cross-platform Apple Sign-In support configurable in Firebase Authentication. |
+| **Calm 4-Tab & Submenu UI** | Story-first **Journal** feed with quick bottom sheets for Health and Daily Missions, plus an **Activities Hub** routing cleanly into **Education & Careers**, **Skills & Adult Loans**, **Creator Studio**, **Underworld**, and **Relationships**. |
+| **Accounts & Firebase Cloud Sync** | **Google Sign-In** (via Jetpack Credential Manager) powered by **Firebase Authentication** & **Cloud Firestore** for saves and leaderboards, plus 100% offline **Guest Mode** (Jetpack DataStore). |
 
 ---
 
 ## Publishing a New GitHub Release
 
-This repository includes an automated workflow at [`.github/workflows/android-release.yml`](.github/workflows/android-release.yml).
+This repository includes an automated workflow at [`.github/workflows/android-release.yml`](.github/workflows/android-release.yml) and ready-to-paste release notes in [`CHANGELOG.md`](CHANGELOG.md).
 
 ### Option A — Automatic Release via Git Tag (Recommended)
 Push the project to GitHub and push any tag starting with `v`:
 
 ```bash
 git add .
-git commit -m "Add release APK, README, and release workflow"
+git commit -m "Release v1.1.0: Calm submenu UI, Google/Firebase disclaimer & changelog"
 git push origin main
 
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
 GitHub Actions will automatically run `:app:testDebugUnitTest`, compile the APK, generate a `.sha256` file, and publish a **GitHub Release** with the installable `.apk` attached.
 
 ### Option B — Manual Upload via GitHub UI
 1. Go to your repository on GitHub → **Releases** → **Draft a new release**.
-2. Create a tag (e.g., `v1.0.0`) and title.
-3. Drag and drop `releases/journal-v1.0.0.apk` into the **Attach binaries** box and click **Publish release**.
+2. Create a tag (e.g., `v1.1.0`) and title, and copy the matching release notes from [`CHANGELOG.md`](CHANGELOG.md).
+3. Drag and drop `releases/journal-v1.1.0.apk` into the **Attach binaries** box and click **Publish release**.
 
 *(Optional production signing: if you want GitHub Actions to also produce a release-key-signed APK, add `RELEASE_KEYSTORE_BASE64`, `STORE_PASSWORD`, and `KEY_PASSWORD` to **Settings → Secrets and variables → Actions**.)*
 

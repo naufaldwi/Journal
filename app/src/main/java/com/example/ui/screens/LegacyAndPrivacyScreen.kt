@@ -98,7 +98,7 @@ fun LegacyAndPrivacyScreen(
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text("Legacy & Privacy", style = MaterialTheme.typography.headlineMedium)
+            Text("Profile & Legacy", style = MaterialTheme.typography.headlineMedium)
 
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 listOf("Board", "Badges", "Saves", "Privacy").forEachIndexed { index, label ->

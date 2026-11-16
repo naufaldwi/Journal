@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.MedicalServices
 import androidx.compose.material.icons.outlined.SelfImprovement
 import androidx.compose.material.icons.outlined.Spa
@@ -34,15 +36,19 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -57,11 +63,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.model.ChoiceOption
 import com.example.model.DietPlan
-import com.example.model.EntryCategory
 import com.example.model.ExerciseRoutine
 import com.example.model.JournalEntry
 import com.example.model.LifeChoicePrompt
@@ -73,6 +79,7 @@ import kotlinx.coroutines.delay
 import java.text.NumberFormat
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JournalHomeScreen(
     life: LifeState,
@@ -91,7 +98,8 @@ fun JournalHomeScreen(
     onCompleteDailyMission: (String) -> Unit,
     onClaimDailyMissionBonus: () -> Unit
 ) {
-    var showWellnessDialog by remember { mutableStateOf(false) }
+    var showWellnessSheet by remember { mutableStateOf(false) }
+    var showMissionsSheet by remember { mutableStateOf(false) }
     var showOptionalAdModal by remember { mutableStateOf(false) }
     val moneyFmt = remember { NumberFormat.getCurrencyInstance(Locale.US).apply { maximumFractionDigits = 0 } }
 
@@ -112,12 +120,13 @@ fun JournalHomeScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 item {
-                    CharacterSummaryCard(
+                    CalmCharacterHeaderCard(
                         life = life,
                         sparkles = sparkles,
                         moneyText = moneyFmt.format(life.netWorth),
                         loanText = if (life.loanDebt > 0) "Loan ${moneyFmt.format(life.loanDebt)}" else null,
-                        onOpenWellness = { showWellnessDialog = true }
+                        onOpenWellness = { showWellnessSheet = true },
+                        onOpenMissions = { showMissionsSheet = true }
                     )
                 }
 
@@ -133,51 +142,34 @@ fun JournalHomeScreen(
                             onOpenFamilyTree = onOpenFamilyTree
                         )
                     }
-                } else {
-                    if (life.pendingPrompt != null) {
-                        item {
-                            PendingChoiceCard(
-                                prompt = life.pendingPrompt,
-                                onSelectOption = onResolveChoice
-                            )
-                        }
-                    }
-                    if (life.currentAge >= 13) {
-                        item {
-                            DailyMissionsCard(
-                                missionState = life.missionState,
-                                isCharacterAlive = life.isAlive,
-                                onCompleteMission = onCompleteDailyMission,
-                                onClaimDailyBonus = onClaimDailyMissionBonus
-                            )
-                        }
-                    } else {
-                        item {
-                            Surface(
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
-                                shape = RoundedCornerShape(16.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .testTag("daily_missions_locked_card")
-                            ) {
-                                Text(
-                                    text = "Daily Missions unlock at Age 13 — enjoy childhood & build foundational skills first.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-                                )
-                            }
-                        }
+                } else if (life.pendingPrompt != null) {
+                    item {
+                        PendingChoiceCard(
+                            prompt = life.pendingPrompt,
+                            onSelectOption = onResolveChoice
+                        )
                     }
                 }
 
                 item {
-                    Text(
-                        text = "Life Chronicle",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.padding(top = 4.dp, start = 4.dp)
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp, start = 4.dp, end = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Life Chronicle",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onBackground
+                        )
+                        Text(
+                            text = "${life.currentYear} · Gen ${life.generation}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
 
                 items(life.entries, key = { it.id }) { entry ->
@@ -185,7 +177,7 @@ fun JournalHomeScreen(
                 }
             }
 
-            // Bottom Action Bar for Advancing Year
+            // Calm Single-Focus Bottom Bar
             Surface(
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 2.dp,
@@ -199,21 +191,12 @@ fun JournalHomeScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (life.isAlive) {
-                        OutlinedButton(
-                            onClick = { showWellnessDialog = true },
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.height(52.dp)
-                        ) {
-                            Icon(Icons.Outlined.Spa, contentDescription = "Open Wellness", modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.size(6.dp))
-                            Text("Wellness")
-                        }
                         Button(
                             onClick = onAgeUp,
                             enabled = life.pendingPrompt == null,
                             shape = RoundedCornerShape(16.dp),
                             modifier = Modifier
-                                .weight(1f)
+                                .fillMaxWidth()
                                 .height(52.dp)
                                 .testTag("age_up_button")
                         ) {
@@ -250,15 +233,66 @@ fun JournalHomeScreen(
         }
     }
 
-    if (showWellnessDialog) {
-        WellnessModalDialog(
-            life = life,
-            onDismiss = { showWellnessDialog = false },
-            onSetDiet = onSetDiet,
-            onSetExercise = onSetExercise,
-            onSetSleep = onSetSleep,
-            onPerformWellnessAction = onPerformWellnessAction
-        )
+    if (showWellnessSheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showWellnessSheet = false },
+            sheetState = sheetState
+        ) {
+            WellnessSheetContent(
+                life = life,
+                onDismiss = { showWellnessSheet = false },
+                onSetDiet = onSetDiet,
+                onSetExercise = onSetExercise,
+                onSetSleep = onSetSleep,
+                onPerformWellnessAction = onPerformWellnessAction
+            )
+        }
+    }
+
+    if (showMissionsSheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showMissionsSheet = false },
+            sheetState = sheetState
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (life.currentAge >= 13) {
+                    DailyMissionsCard(
+                        missionState = life.missionState,
+                        isCharacterAlive = life.isAlive,
+                        onCompleteMission = onCompleteDailyMission,
+                        onClaimDailyBonus = onClaimDailyMissionBonus
+                    )
+                } else {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("daily_missions_locked_card")
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text("Daily Missions Unlock at Age 13", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "Focus on growing up and building foundational school skills during childhood. Daily tasks and XP leveling open in adolescence.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 
     if (showOptionalAdModal) {
@@ -274,12 +308,13 @@ fun JournalHomeScreen(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun CharacterSummaryCard(
+private fun CalmCharacterHeaderCard(
     life: LifeState,
     sparkles: Int,
     moneyText: String,
     loanText: String?,
-    onOpenWellness: () -> Unit
+    onOpenWellness: () -> Unit,
+    onOpenMissions: () -> Unit
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -287,7 +322,7 @@ private fun CharacterSummaryCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(18.dp),
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
@@ -297,46 +332,38 @@ private fun CharacterSummaryCard(
                 CharacterAvatar(
                     appearance = life.appearance,
                     age = life.currentAge,
-                    size = 66.dp,
+                    size = 60.dp,
                     health = life.stats.health,
                     fame = life.fame,
                     isInPrison = life.prisonYearsLeft > 0
                 )
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         text = life.characterName,
                         style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = "${life.lifeStage.label} · ${life.currentCareerTitle} · ${life.birthplace}",
+                        text = "Age ${life.currentAge} · ${life.currentCareerTitle} · ${life.birthplace}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
                     FlowRow(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        if (life.currentAge >= 13) {
-                            StatBadge("Lv.${life.missionState.level}")
-                        }
-                        StatBadge("Gen ${life.generation}")
-                        StatBadge("Age ${life.currentAge}")
-                        StatBadge("${life.currentYear}")
                         StatBadge(moneyText)
-                        if (loanText != null) {
-                            StatBadge(loanText)
-                        }
+                        if (loanText != null) StatBadge(loanText)
                         StatBadge("$sparkles ✦")
-                        if (life.fame > 0 || life.careerTrack.isFameTrack) {
-                            StatBadge("Fame ${life.fame}")
-                        }
-                        if (life.crimeActive || life.prisonYearsLeft > 0) {
-                            StatBadge(
-                                if (life.prisonYearsLeft > 0) "Prison ${life.prisonYearsLeft}y"
-                                else "Heat ${life.notoriety}%"
-                            )
+                        if (life.fame > 0) StatBadge("Fame ${life.fame}")
+                        if (life.prisonYearsLeft > 0) {
+                            StatBadge("Prison ${life.prisonYearsLeft}y")
+                        } else if (life.crimeActive) {
+                            StatBadge("Heat ${life.notoriety}%")
                         }
                     }
                 }
@@ -344,36 +371,50 @@ private fun CharacterSummaryCard(
 
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-            // Physical & Mental Wellness Snapshot
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                WellnessMiniMeter("Health", life.stats.health, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
-                WellnessMiniMeter("Energy", life.stats.energy, MaterialTheme.colorScheme.secondary, Modifier.weight(1f))
-                WellnessMiniMeter("Happy", life.stats.happiness, MaterialTheme.colorScheme.tertiary, Modifier.weight(1f))
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                WellnessMiniMeter("Fitness", life.stats.fitness, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
-                WellnessMiniMeter("Stress", life.stats.stress, MaterialTheme.colorScheme.error, Modifier.weight(1f))
-                WellnessMiniMeter("Risk", life.stats.diseaseRisk, MaterialTheme.colorScheme.error, Modifier.weight(1f))
-            }
+                FilledTonalButton(
+                    onClick = onOpenWellness,
+                    shape = RoundedCornerShape(14.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .defaultMinSize(minHeight = 48.dp)
+                        .testTag("open_wellness_sheet_button")
+                ) {
+                    Icon(Icons.Outlined.Spa, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.size(6.dp))
+                    Text(
+                        text = "Health ${life.stats.health}%",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "${life.diet.label} · ${life.sleep.label}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                TextButton(onClick = onOpenWellness) {
-                    Text("Adjust Routine")
+                FilledTonalButton(
+                    onClick = onOpenMissions,
+                    shape = RoundedCornerShape(14.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .defaultMinSize(minHeight = 48.dp)
+                        .testTag("open_missions_sheet_button")
+                ) {
+                    Icon(Icons.Outlined.Flag, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.size(6.dp))
+                    Text(
+                        text = if (life.currentAge >= 13) {
+                            "Missions ${life.missionState.completedCount}/3 · Lv.${life.missionState.level}"
+                        } else {
+                            "Missions (Age 13+)"
+                        },
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelMedium
+                    )
                 }
             }
         }
@@ -395,8 +436,117 @@ private fun StatBadge(text: String) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun WellnessMiniMeter(
+private fun WellnessSheetContent(
+    life: LifeState,
+    onDismiss: () -> Unit,
+    onSetDiet: (DietPlan) -> Unit,
+    onSetExercise: (ExerciseRoutine) -> Unit,
+    onSetSleep: (SleepSchedule) -> Unit,
+    onPerformWellnessAction: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Health & Wellness", style = MaterialTheme.typography.headlineMedium)
+            TextButton(onClick = onDismiss) { Text("Done") }
+        }
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SheetMeter("Health", life.stats.health, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+            SheetMeter("Energy", life.stats.energy, MaterialTheme.colorScheme.secondary, Modifier.weight(1f))
+            SheetMeter("Happy", life.stats.happiness, MaterialTheme.colorScheme.tertiary, Modifier.weight(1f))
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SheetMeter("Fitness", life.stats.fitness, MaterialTheme.colorScheme.primary, Modifier.weight(1f))
+            SheetMeter("Stress", life.stats.stress, MaterialTheme.colorScheme.error, Modifier.weight(1f))
+            SheetMeter("Risk", life.stats.diseaseRisk, MaterialTheme.colorScheme.error, Modifier.weight(1f))
+        }
+
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+        Text("Daily Diet", style = MaterialTheme.typography.titleSmall)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            DietPlan.entries.forEach { plan ->
+                FilterChip(
+                    selected = life.diet == plan,
+                    onClick = { onSetDiet(plan) },
+                    label = { Text(plan.label) }
+                )
+            }
+        }
+
+        Text("Movement Routine", style = MaterialTheme.typography.titleSmall)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            ExerciseRoutine.entries.forEach { routine ->
+                FilterChip(
+                    selected = life.exercise == routine,
+                    onClick = { onSetExercise(routine) },
+                    label = { Text(routine.label) }
+                )
+            }
+        }
+
+        Text("Sleep Schedule", style = MaterialTheme.typography.titleSmall)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            SleepSchedule.entries.forEach { sched ->
+                FilterChip(
+                    selected = life.sleep == sched,
+                    onClick = { onSetSleep(sched) },
+                    label = { Text(sched.label) }
+                )
+            }
+        }
+
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Text("Care Actions", style = MaterialTheme.typography.titleSmall)
+
+        OutlinedButton(
+            onClick = { onPerformWellnessAction("checkup") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = 48.dp)
+        ) {
+            Icon(Icons.Outlined.MedicalServices, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(8.dp))
+            Text("Preventive Checkup ($180, -12% Risk)")
+        }
+        OutlinedButton(
+            onClick = { onPerformWellnessAction("therapy") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = 48.dp)
+        ) {
+            Icon(Icons.Outlined.SelfImprovement, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(8.dp))
+            Text("Therapy & Mindfulness ($140, -14 Stress)")
+        }
+        OutlinedButton(
+            onClick = { onPerformWellnessAction("retreat") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .defaultMinSize(minHeight = 48.dp)
+        ) {
+            Icon(Icons.Outlined.FavoriteBorder, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(8.dp))
+            Text("Nature Retreat ($450, +18 Energy)")
+        }
+    }
+}
+
+@Composable
+private fun SheetMeter(
     label: String,
     value: Int,
     color: androidx.compose.ui.graphics.Color,
@@ -636,102 +786,6 @@ private fun EndOfLifeLegacyCard(
             }
         }
     }
-}
-
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun WellnessModalDialog(
-    life: LifeState,
-    onDismiss: () -> Unit,
-    onSetDiet: (DietPlan) -> Unit,
-    onSetExercise: (ExerciseRoutine) -> Unit,
-    onSetSleep: (SleepSchedule) -> Unit,
-    onPerformWellnessAction: (String) -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Health & Mental Wellness", style = MaterialTheme.typography.headlineMedium) },
-        text = {
-            Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    "Physical: Health ${life.stats.health} · Energy ${life.stats.energy} · Fitness ${life.stats.fitness} · Disease Risk ${life.stats.diseaseRisk}%",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    "Mental: Happiness ${life.stats.happiness} · Stress ${life.stats.stress} · Anxiety ${life.stats.anxiety}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.tertiary
-                )
-
-                Text("Daily Diet", style = MaterialTheme.typography.titleSmall)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    DietPlan.entries.forEach { plan ->
-                        FilterChip(
-                            selected = life.diet == plan,
-                            onClick = { onSetDiet(plan) },
-                            label = { Text(plan.label) }
-                        )
-                    }
-                }
-
-                Text("Movement Routine", style = MaterialTheme.typography.titleSmall)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    ExerciseRoutine.entries.forEach { routine ->
-                        FilterChip(
-                            selected = life.exercise == routine,
-                            onClick = { onSetExercise(routine) },
-                            label = { Text(routine.label) }
-                        )
-                    }
-                }
-
-                Text("Sleep Schedule", style = MaterialTheme.typography.titleSmall)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    SleepSchedule.entries.forEach { sched ->
-                        FilterChip(
-                            selected = life.sleep == sched,
-                            onClick = { onSetSleep(sched) },
-                            label = { Text(sched.label) }
-                        )
-                    }
-                }
-
-                HorizontalDivider()
-                Text("Care Actions", style = MaterialTheme.typography.titleSmall)
-                OutlinedButton(
-                    onClick = { onPerformWellnessAction("checkup") },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Outlined.MedicalServices, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(8.dp))
-                    Text("Preventive Checkup ($180, -12% Risk)")
-                }
-                OutlinedButton(
-                    onClick = { onPerformWellnessAction("therapy") },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Outlined.SelfImprovement, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(8.dp))
-                    Text("Therapy & Mindfulness ($140, -14 Stress)")
-                }
-                OutlinedButton(
-                    onClick = { onPerformWellnessAction("retreat") },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Outlined.FavoriteBorder, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.size(8.dp))
-                    Text("Nature Retreat ($450, +18 Energy)")
-                }
-            }
-        },
-        confirmButton = {
-            Button(onClick = onDismiss) { Text("Done") }
-        }
-    )
 }
 
 @Composable

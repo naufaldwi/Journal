@@ -16,14 +16,12 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.AutoStories
-import androidx.compose.material.icons.filled.Diversity3
-import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.LiveTv
+import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.AccountTree
 import androidx.compose.material.icons.outlined.AutoStories
-import androidx.compose.material.icons.outlined.Diversity3
-import androidx.compose.material.icons.outlined.EmojiEvents
-import androidx.compose.material.icons.outlined.LiveTv
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -61,9 +59,8 @@ import com.example.data.LocalGuestRepository
 import com.example.data.attemptAutoSignIn
 import com.example.data.authStateFlow
 import com.example.ui.JournalViewModel
+import com.example.ui.screens.ActivitiesHubScreen
 import com.example.ui.screens.AuthScreen
-import com.example.ui.screens.CareerAndBondsScreen
-import com.example.ui.screens.CreatorStudioScreen
 import com.example.ui.screens.FamilyTreeScreen
 import com.example.ui.screens.JournalHomeScreen
 import com.example.ui.screens.LegacyAndPrivacyScreen
@@ -75,10 +72,9 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 
 const val ROUTE_JOURNAL = "journal"
-const val ROUTE_CAREER = "career_bonds"
+const val ROUTE_ACTIVITIES = "activities"
 const val ROUTE_TREE = "family_tree"
-const val ROUTE_STUDIO = "creator_studio"
-const val ROUTE_LEGACY = "legacy_privacy"
+const val ROUTE_PROFILE = "profile"
 
 private data class NavDestinationItem(
     val route: String,
@@ -90,10 +86,9 @@ private data class NavDestinationItem(
 
 private val navItems = listOf(
     NavDestinationItem(ROUTE_JOURNAL, "Journal", Icons.Filled.AutoStories, Icons.Outlined.AutoStories, "nav_journal"),
-    NavDestinationItem(ROUTE_CAREER, "Life", Icons.Filled.Diversity3, Icons.Outlined.Diversity3, "nav_life"),
+    NavDestinationItem(ROUTE_ACTIVITIES, "Activities", Icons.Filled.Explore, Icons.Outlined.Explore, "nav_activities"),
     NavDestinationItem(ROUTE_TREE, "Tree", Icons.Filled.AccountTree, Icons.Outlined.AccountTree, "nav_tree"),
-    NavDestinationItem(ROUTE_STUDIO, "Studio", Icons.Filled.LiveTv, Icons.Outlined.LiveTv, "nav_studio"),
-    NavDestinationItem(ROUTE_LEGACY, "Legacy", Icons.Filled.EmojiEvents, Icons.Outlined.EmojiEvents, "nav_legacy")
+    NavDestinationItem(ROUTE_PROFILE, "Profile", Icons.Filled.Person, Icons.Outlined.Person, "nav_profile")
 )
 
 class MainActivity : ComponentActivity() {
@@ -334,9 +329,12 @@ private fun JournalSessionHost(
                             onClaimDailyMissionBonus = { viewModel.claimDailyMissionBonus() }
                         )
                     }
-                    composable(ROUTE_CAREER) {
-                        CareerAndBondsScreen(
+                    composable(ROUTE_ACTIVITIES) {
+                        ActivitiesHubScreen(
                             life = activeLife,
+                            sparkles = sparkles,
+                            lastStreamOutcome = uiState.lastStreamOutcome,
+                            onDismissStreamOutcome = { viewModel.clearLastStreamOutcome() },
                             onEnrollEducation = { viewModel.enrollEducation(it) },
                             onApplyCareer = { viewModel.applyCareer(it) },
                             onWorkExtraHours = { viewModel.workExtraHours() },
@@ -348,7 +346,14 @@ private fun JournalSessionHost(
                             onCommitSyndicateOp = { viewModel.commitSyndicateOp(it) },
                             onLeaveCrime = { viewModel.leaveCrimeLife() },
                             onInteractRelationship = { id, act -> viewModel.interactRelationship(id, act) },
-                            onMeetNewPerson = { romantic -> viewModel.meetNewPerson(romantic) }
+                            onMeetNewPerson = { romantic -> viewModel.meetNewPerson(romantic) },
+                            onUpdateChannel = { handle, niche -> viewModel.updateChannelSettings(handle, niche) },
+                            onPostContent = { rideTrend -> viewModel.postCreatorContent(rideTrend) },
+                            onInteractFollowers = { action -> viewModel.interactWithFollowers(action) },
+                            onCompleteLiveStream = { fmt, topic, engaged -> viewModel.completeLiveStream(fmt, topic, engaged) },
+                            onLaunchMerch = { name -> viewModel.launchMerchLine(name) },
+                            onSignSponsor = { name, pay, rep -> viewModel.signSponsorship(name, pay, rep) },
+                            onUpgradeGear = { viewModel.upgradeStudioGearWithSparkles() }
                         )
                     }
                     composable(ROUTE_TREE) {
@@ -364,22 +369,7 @@ private fun JournalSessionHost(
                             }
                         )
                     }
-                    composable(ROUTE_STUDIO) {
-                        CreatorStudioScreen(
-                            life = activeLife,
-                            sparkles = sparkles,
-                            lastStreamOutcome = uiState.lastStreamOutcome,
-                            onDismissStreamOutcome = { viewModel.clearLastStreamOutcome() },
-                            onUpdateChannel = { handle, niche -> viewModel.updateChannelSettings(handle, niche) },
-                            onPostContent = { rideTrend -> viewModel.postCreatorContent(rideTrend) },
-                            onInteractFollowers = { action -> viewModel.interactWithFollowers(action) },
-                            onCompleteLiveStream = { fmt, topic, engaged -> viewModel.completeLiveStream(fmt, topic, engaged) },
-                            onLaunchMerch = { name -> viewModel.launchMerchLine(name) },
-                            onSignSponsor = { name, pay, rep -> viewModel.signSponsorship(name, pay, rep) },
-                            onUpgradeGear = { viewModel.upgradeStudioGearWithSparkles() }
-                        )
-                    }
-                    composable(ROUTE_LEGACY) {
+                    composable(ROUTE_PROFILE) {
                         LegacyAndPrivacyScreen(
                             uiState = uiState,
                             onResumeCloudSave = { save ->

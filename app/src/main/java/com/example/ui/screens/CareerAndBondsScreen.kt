@@ -1,18 +1,16 @@
 package com.example.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -43,400 +41,408 @@ import com.example.model.CareerTrack
 import com.example.model.EducationType
 import com.example.model.LifeState
 import com.example.model.Relationship
-import com.example.model.SkillActivity
-import com.example.ui.components.AdultLoansCard
-import com.example.ui.components.SkillActivitiesCard
-import com.example.ui.components.SkillsOverviewCard
 import java.text.NumberFormat
 import java.util.Locale
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun CareerAndBondsScreen(
+fun EducationCareersSubView(
     life: LifeState,
     onEnrollEducation: (EducationType) -> Unit,
     onApplyCareer: (CareerTrack) -> Unit,
     onWorkExtraHours: () -> Unit,
-    onBoostFame: () -> Unit,
-    onTrainSkill: (SkillActivity) -> Unit,
-    onTakeLoan: (Int) -> Unit,
-    onRepayLoan: (Int) -> Unit,
-    onJoinCrime: () -> Unit,
-    onCommitSyndicateOp: (Int) -> Unit,
-    onLeaveCrime: () -> Unit,
-    onInteractRelationship: (String, String) -> Unit,
-    onMeetNewPerson: (Boolean) -> Unit
+    onBoostFame: () -> Unit
 ) {
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var section by remember { mutableIntStateOf(0) }
     val moneyFmt = remember { NumberFormat.getCurrencyInstance(Locale.US).apply { maximumFractionDigits = 0 } }
-    val syndicate = remember(life.birthplace) { CountryCatalog.syndicateForBirthplace(life.birthplace) }
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.TopCenter
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .widthIn(max = 600.dp)
-                .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "Vocation, Fame & Bonds",
-                style = MaterialTheme.typography.headlineMedium
-            )
-
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                val tabs = listOf("Careers", "Skills", "Crime", "Bonds")
-                tabs.forEachIndexed { index, label ->
-                    SegmentedButton(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = tabs.size),
-                        modifier = Modifier.testTag("life_tab_$index")
-                    ) {
-                        Text(label, maxLines = 1)
-                    }
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            listOf("Current & Schools", "Career Tracks").forEachIndexed { idx, label ->
+                SegmentedButton(
+                    selected = section == idx,
+                    onClick = { section = idx },
+                    shape = SegmentedButtonDefaults.itemShape(index = idx, count = 2),
+                    modifier = Modifier.testTag("career_subtab_$idx")
+                ) {
+                    Text(label, maxLines = 1)
                 }
             }
+        }
 
-            when (selectedTab) {
-                0 -> {
-                    LazyColumn(
-                        contentPadding = PaddingValues(bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            contentPadding = PaddingValues(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (section == 0) {
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                        shape = RoundedCornerShape(20.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        item {
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-                                shape = RoundedCornerShape(20.dp),
-                                modifier = Modifier.fillMaxWidth()
+                        Column(
+                            modifier = Modifier.padding(18.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("Current Chapter", style = MaterialTheme.typography.labelSmall)
+                            Text(life.currentCareerTitle, style = MaterialTheme.typography.titleLarge)
+                            Text(
+                                text = when {
+                                    life.prisonYearsLeft > 0 -> "Serving ${life.prisonYearsLeft} more year(s) in prison."
+                                    life.currentSalary > 0 -> "Annual Salary: ${moneyFmt.format(life.currentSalary)} · Performance ${life.careerPerformance}%"
+                                    life.inSchool -> "Enrolled in ${life.educationType.label}"
+                                    else -> "Open to careers & conservatories at age 18+"
+                                },
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(18.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    Text("Current Chapter", style = MaterialTheme.typography.labelSmall)
-                                    Text(life.currentCareerTitle, style = MaterialTheme.typography.titleLarge)
-                                    Text(
-                                        text = when {
-                                            life.prisonYearsLeft > 0 -> "Serving ${life.prisonYearsLeft} more year(s) in prison."
-                                            life.currentSalary > 0 -> "Annual Salary: ${moneyFmt.format(life.currentSalary)} · Performance ${life.careerPerformance}%"
-                                            life.inSchool -> "Enrolled in ${life.educationType.label}"
-                                            else -> "Open to careers & conservatories at age 18+"
-                                        },
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                    FlowRow(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                                if (life.careerTrack != CareerTrack.UNEMPLOYED && life.isAlive && life.prisonYearsLeft == 0) {
+                                    Button(
+                                        onClick = onWorkExtraHours,
+                                        shape = RoundedCornerShape(14.dp),
+                                        modifier = Modifier.defaultMinSize(minHeight = 48.dp)
                                     ) {
-                                        if (life.careerTrack != CareerTrack.UNEMPLOYED && life.isAlive && life.prisonYearsLeft == 0) {
-                                            Button(
-                                                onClick = onWorkExtraHours,
-                                                shape = RoundedCornerShape(14.dp)
-                                            ) {
-                                                Text("Focused Sprint")
-                                            }
-                                        }
-                                        if (life.isAlive && life.currentAge >= 16 && life.prisonYearsLeft == 0 &&
-                                            (life.careerTrack.isFameTrack || life.fame > 0)
-                                        ) {
-                                            OutlinedButton(
-                                                onClick = onBoostFame,
-                                                shape = RoundedCornerShape(14.dp),
-                                                modifier = Modifier.testTag("boost_fame_button")
-                                            ) {
-                                                Text("Release / Press Showcase")
-                                            }
-                                        }
+                                        Text("Focused Sprint")
+                                    }
+                                }
+                                if (life.isAlive && life.currentAge >= 16 && life.prisonYearsLeft == 0 &&
+                                    (life.careerTrack.isFameTrack || life.fame > 0)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = onBoostFame,
+                                        shape = RoundedCornerShape(14.dp),
+                                        modifier = Modifier
+                                            .defaultMinSize(minHeight = 48.dp)
+                                            .testTag("boost_fame_button")
+                                    ) {
+                                        Text("Release / Showcase")
                                     }
                                 }
                             }
                         }
+                    }
+                }
 
-                        // Fame Decay Tracker
-                        if (life.fame > 0 || life.peakFame > 0 || life.careerTrack.isFameTrack) {
-                            item {
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                    shape = RoundedCornerShape(18.dp),
-                                    modifier = Modifier.fillMaxWidth()
+                if (life.fame > 0 || life.peakFame > 0 || life.careerTrack.isFameTrack) {
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            shape = RoundedCornerShape(18.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
-                                    Column(
-                                        modifier = Modifier.padding(16.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    Text("Public Fame", style = MaterialTheme.typography.titleMedium)
+                                    Text("${life.fame}/100 (Peak ${life.peakFame})", style = MaterialTheme.typography.labelLarge)
+                                }
+                                LinearProgressIndicator(
+                                    progress = { (life.fame / 100f).coerceIn(0f, 1f) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(8.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                )
+                                Text(
+                                    "Fame fades each year unless you release work, perform, race, or stream.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text("Higher Education & Conservatories", style = MaterialTheme.typography.titleMedium)
+                            if (life.completedEducation != EducationType.NONE) {
+                                Text(
+                                    "Completed: ${life.completedEducation.label}",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            if (life.currentAge < 18) {
+                                Text(
+                                    "Universities, Law School & Conservatories unlock at Age 18.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else if (life.inSchool) {
+                                Text(
+                                    "Currently studying ${life.educationType.label}. Matching skills auto-increase each year!",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            } else if (life.isAlive && life.prisonYearsLeft == 0) {
+                                EducationType.entries.filter { it != EducationType.NONE }.forEach { edu ->
+                                    OutlinedButton(
+                                        onClick = { onEnrollEducation(edu) },
+                                        enabled = life.completedEducation != edu,
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .defaultMinSize(minHeight = 48.dp)
                                     ) {
-                                        Row(
+                                        Column(
                                             modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween
+                                            horizontalAlignment = Alignment.Start
                                         ) {
-                                            Text("Public Fame", style = MaterialTheme.typography.titleMedium)
-                                            Text("${life.fame}/100 (Peak ${life.peakFame})", style = MaterialTheme.typography.labelLarge)
-                                        }
-                                        LinearProgressIndicator(
-                                            progress = { (life.fame / 100f).coerceIn(0f, 1f) },
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(8.dp)
-                                                .clip(RoundedCornerShape(4.dp))
-                                        )
-                                        Text(
-                                            "Fame fades each year unless you keep releasing work, touring, racing, or streaming.",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // Higher Education & Art/Music Conservatories
-                        if (life.isAlive && life.currentAge >= 18 && !life.inSchool && life.prisonYearsLeft == 0) {
-                            item {
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                    shape = RoundedCornerShape(18.dp),
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Column(
-                                        modifier = Modifier.padding(16.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Text("Higher Education & Conservatories", style = MaterialTheme.typography.titleMedium)
-                                        if (life.completedEducation != EducationType.NONE) {
+                                            Text("${edu.label} ($${edu.annualCost})", style = MaterialTheme.typography.titleSmall)
                                             Text(
-                                                "Completed: ${life.completedEducation.label}",
-                                                style = MaterialTheme.typography.labelMedium,
-                                                color = MaterialTheme.colorScheme.primary
-                                            )
-                                        }
-                                        FlowRow(
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalArrangement = Arrangement.spacedBy(6.dp)
-                                        ) {
-                                            EducationType.entries.filter { it != EducationType.NONE }.forEach { edu ->
-                                                OutlinedButton(
-                                                    onClick = { onEnrollEducation(edu) },
-                                                    enabled = life.completedEducation != edu
-                                                ) {
-                                                    Text("${edu.label} ($${edu.annualCost})")
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        items(CareerTrack.entries.filter { it != CareerTrack.UNEMPLOYED }) { track ->
-                            val isCurrent = life.careerTrack == track
-                            val userSkill = life.skills.levelOf(track.primarySkill)
-                            val meetsSkill = userSkill >= track.minPrimarySkill
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                shape = RoundedCornerShape(18.dp),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(track.title, style = MaterialTheme.typography.titleMedium)
-                                            val reqLabel = when {
-                                                track.requiresDegree -> "${track.preferredEducation.label} / High Intellect"
-                                                track.preferredEducation != EducationType.NONE -> "${track.preferredEducation.label} / Talent"
-                                                else -> "Open Entry"
-                                            }
-                                            Text(
-                                                text = "${track.fieldLabel} · $reqLabel${if (track.isFameTrack) " · Fame" else ""}",
+                                                edu.description,
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
                                         }
-                                        if (isCurrent) {
-                                            Surface(
-                                                color = MaterialTheme.colorScheme.secondaryContainer,
-                                                shape = RoundedCornerShape(10.dp)
-                                            ) {
-                                                Text(
-                                                    "Active",
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                    Text(
-                                        text = "Skill Gate: ${track.primarySkill.label} $userSkill/${track.minPrimarySkill} (Secondary: ${track.secondarySkill.label})",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (meetsSkill) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                                    )
-                                    Text(
-                                        text = "Ladder: ${track.rungs.joinToString(" → ") { it.first }}",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    if (!isCurrent && life.isAlive) {
-                                        OutlinedButton(
-                                            onClick = { onApplyCareer(track) },
-                                            shape = RoundedCornerShape(12.dp),
-                                            modifier = Modifier.testTag("apply_career_${track.name}")
-                                        ) {
-                                            Text("Apply for ${track.rungs.first().first}")
-                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
-
-                1 -> {
-                    LazyColumn(
-                        contentPadding = PaddingValues(bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+            } else {
+                items(CareerTrack.entries.filter { it != CareerTrack.UNEMPLOYED }) { track ->
+                    val isCurrent = life.careerTrack == track
+                    val userSkill = life.skills.levelOf(track.primarySkill)
+                    val meetsSkill = userSkill >= track.minPrimarySkill
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        shape = RoundedCornerShape(18.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        item { SkillsOverviewCard(life = life) }
-                        item { SkillActivitiesCard(life = life, onTrainSkill = onTrainSkill) }
-                        item {
-                            AdultLoansCard(
-                                life = life,
-                                onTakeLoan = onTakeLoan,
-                                onRepayLoan = onRepayLoan
-                            )
-                        }
-                    }
-                }
-
-                2 -> {
-                    LazyColumn(
-                        contentPadding = PaddingValues(bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        item {
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                                shape = RoundedCornerShape(20.dp),
-                                modifier = Modifier.fillMaxWidth()
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(18.dp),
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Text(syndicate.organizationName, style = MaterialTheme.typography.headlineMedium)
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(track.title, style = MaterialTheme.typography.titleMedium)
+                                    val reqLabel = when {
+                                        track.requiresDegree -> "${track.preferredEducation.label} / High Intellect"
+                                        track.preferredEducation != EducationType.NONE -> "${track.preferredEducation.label} / Talent"
+                                        else -> "Open Entry"
+                                    }
                                     Text(
-                                        "Local Syndicate (${life.birthplace}) · Term: ${syndicate.localTerm}",
+                                        text = "${track.fieldLabel} · $reqLabel${if (track.isFameTrack) " · Fame" else ""}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    Text(
-                                        text = if (life.prisonYearsLeft > 0) {
-                                            "Serving prison time (${life.prisonYearsLeft}y remaining). Age forward to finish sentence."
-                                        } else if (life.crimeActive) {
-                                            "Rank: ${syndicate.ranks.getOrElse(life.crimeRank) { syndicate.ranks.last() }} · Notoriety ${life.notoriety}/100"
-                                        } else {
-                                            "Walk the shadow path for high risk & fast money — or stay clean."
-                                        },
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                    LinearProgressIndicator(
-                                        progress = { (life.notoriety / 100f).coerceIn(0f, 1f) },
-                                        color = MaterialTheme.colorScheme.error,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(7.dp)
-                                            .clip(RoundedCornerShape(4.dp))
-                                    )
-
-                                    if (!life.crimeActive && life.isAlive && life.prisonYearsLeft == 0) {
-                                        Button(
-                                            onClick = onJoinCrime,
-                                            enabled = life.currentAge >= 16,
-                                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                                            shape = RoundedCornerShape(14.dp),
-                                            modifier = Modifier.testTag("join_crime_button")
-                                        ) {
-                                            Text(
-                                                if (life.currentAge < 16) "Unlocks at Age 16"
-                                                else "Join ${syndicate.localTerm} Syndicate"
-                                            )
-                                        }
-                                    } else if (life.crimeActive && life.isAlive && life.prisonYearsLeft == 0) {
-                                        syndicate.hustleTitles.forEachIndexed { idx, op ->
-                                            OutlinedButton(
-                                                onClick = { onCommitSyndicateOp(idx) },
-                                                shape = RoundedCornerShape(14.dp),
-                                                modifier = Modifier.fillMaxWidth()
-                                            ) {
-                                                Text("${op.first} (Tier ${idx + 1} Risk)")
-                                            }
-                                        }
-                                        OutlinedButton(
-                                            onClick = onLeaveCrime,
-                                            shape = RoundedCornerShape(14.dp),
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) {
-                                            Text("Leave Syndicate & Go Straight")
-                                        }
-                                    }
                                 }
-                            }
-                        }
-                    }
-                }
-
-                else -> {
-                    LazyColumn(
-                        contentPadding = PaddingValues(bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        if (life.isAlive && life.currentAge >= 12) {
-                            item {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    OutlinedButton(
-                                        onClick = { onMeetNewPerson(false) },
-                                        modifier = Modifier.weight(1f),
-                                        shape = RoundedCornerShape(14.dp)
+                                if (isCurrent) {
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        shape = RoundedCornerShape(10.dp)
                                     ) {
-                                        Text("Meet Friend")
-                                    }
-                                    if (life.currentAge >= 18) {
-                                        Button(
-                                            onClick = { onMeetNewPerson(true) },
-                                            modifier = Modifier.weight(1f),
-                                            shape = RoundedCornerShape(14.dp)
-                                        ) {
-                                            Text("Seek Romance")
-                                        }
+                                        Text(
+                                            "Active",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                                        )
                                     }
                                 }
                             }
-                        }
-
-                        items(life.relationships, key = { it.id }) { rel ->
-                            RelationshipCard(
-                                rel = rel,
-                                canInteract = life.isAlive,
-                                canPropose = life.currentAge >= 20 && rel.isPartner && !rel.isSpouse,
-                                onInteract = { action -> onInteractRelationship(rel.id, action) }
+                            Text(
+                                text = "Skill Gate: ${track.primarySkill.label} $userSkill/${track.minPrimarySkill}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (meetsSkill) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                             )
+                            Text(
+                                text = "Ladder: ${track.rungs.joinToString(" → ") { it.first }}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (!isCurrent && life.isAlive) {
+                                OutlinedButton(
+                                    onClick = { onApplyCareer(track) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier
+                                        .defaultMinSize(minHeight = 48.dp)
+                                        .testTag("apply_career_${track.name}")
+                                ) {
+                                    Text("Apply as ${track.rungs.first().first}")
+                                }
+                            }
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun UnderworldSubView(
+    life: LifeState,
+    onJoinCrime: () -> Unit,
+    onCommitSyndicateOp: (Int) -> Unit,
+    onLeaveCrime: () -> Unit
+) {
+    val syndicate = remember(life.birthplace) { CountryCatalog.syndicateForBirthplace(life.birthplace) }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                shape = RoundedCornerShape(20.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(syndicate.organizationName, style = MaterialTheme.typography.headlineMedium)
+                    Text(
+                        "Local Syndicate (${life.birthplace}) · Term: ${syndicate.localTerm}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = if (life.prisonYearsLeft > 0) {
+                            "Serving prison time (${life.prisonYearsLeft}y remaining). Age forward to finish sentence."
+                        } else if (life.crimeActive) {
+                            "Rank: ${syndicate.ranks.getOrElse(life.crimeRank) { syndicate.ranks.last() }} · Notoriety ${life.notoriety}/100"
+                        } else {
+                            "Walk the shadow path for high risk & fast money — or stay clean."
+                        },
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    LinearProgressIndicator(
+                        progress = { (life.notoriety / 100f).coerceIn(0f, 1f) },
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(7.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                    )
+
+                    if (!life.crimeActive && life.isAlive && life.prisonYearsLeft == 0) {
+                        Button(
+                            onClick = onJoinCrime,
+                            enabled = life.currentAge >= 16,
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier
+                                .defaultMinSize(minHeight = 48.dp)
+                                .testTag("join_crime_button")
+                        ) {
+                            Text(
+                                if (life.currentAge < 16) "Unlocks at Age 16"
+                                else "Join ${syndicate.localTerm} Syndicate"
+                            )
+                        }
+                    } else if (life.crimeActive && life.isAlive && life.prisonYearsLeft == 0) {
+                        syndicate.hustleTitles.forEachIndexed { idx, op ->
+                            OutlinedButton(
+                                onClick = { onCommitSyndicateOp(idx) },
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .defaultMinSize(minHeight = 48.dp)
+                            ) {
+                                Text("${op.first} (Tier ${idx + 1} Risk)")
+                            }
+                        }
+                        OutlinedButton(
+                            onClick = onLeaveCrime,
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .defaultMinSize(minHeight = 48.dp)
+                        ) {
+                            Text("Leave Syndicate & Go Straight")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BondsSubView(
+    life: LifeState,
+    onInteractRelationship: (String, String) -> Unit,
+    onMeetNewPerson: (Boolean) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        if (life.isAlive && life.currentAge >= 12) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { onMeetNewPerson(false) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .defaultMinSize(minHeight = 48.dp),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text("Meet Friend")
+                    }
+                    if (life.currentAge >= 18) {
+                        Button(
+                            onClick = { onMeetNewPerson(true) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .defaultMinSize(minHeight = 48.dp),
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text("Seek Romance")
+                        }
+                    }
+                }
+            }
+        }
+
+        items(life.relationships, key = { it.id }) { rel ->
+            RelationshipCard(
+                rel = rel,
+                canInteract = life.isAlive,
+                canPropose = life.currentAge >= 20 && rel.isPartner && !rel.isSpouse,
+                onInteract = { action -> onInteractRelationship(rel.id, action) }
+            )
         }
     }
 }
@@ -494,19 +500,31 @@ private fun RelationshipCard(
             if (canInteract && rel.isAlive) {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    OutlinedButton(onClick = { onInteract("time") }) {
+                    OutlinedButton(
+                        onClick = { onInteract("time") },
+                        modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                    ) {
                         Text("Quality Time")
                     }
-                    OutlinedButton(onClick = { onInteract("deep_talk") }) {
+                    OutlinedButton(
+                        onClick = { onInteract("deep_talk") },
+                        modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                    ) {
                         Text("Deep Talk")
                     }
-                    OutlinedButton(onClick = { onInteract("gift") }) {
+                    OutlinedButton(
+                        onClick = { onInteract("gift") },
+                        modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                    ) {
                         Text("Gift ($150)")
                     }
                     if (canPropose) {
-                        Button(onClick = { onInteract("propose") }) {
+                        Button(
+                            onClick = { onInteract("propose") },
+                            modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                        ) {
                             Text("Propose")
                         }
                     }
