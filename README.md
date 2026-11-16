@@ -50,33 +50,6 @@ A freshly compiled, ready-to-install `v1.1.0` APK is included right inside this 
 
 ---
 
-## Publishing a New GitHub Release
-
-This repository includes an automated workflow at [`.github/workflows/android-release.yml`](.github/workflows/android-release.yml) and ready-to-paste release notes in [`CHANGELOG.md`](CHANGELOG.md).
-
-### Option A — Automatic Release via Git Tag (Recommended)
-Push the project to GitHub and push any tag starting with `v`:
-
-```bash
-git add .
-git commit -m "Release v1.1.0: Calm submenu UI, Google/Firebase disclaimer & changelog"
-git push origin main
-
-git tag v1.1.0
-git push origin v1.1.0
-```
-
-GitHub Actions will automatically run `:app:testDebugUnitTest`, compile the APK, generate a `.sha256` file, and publish a **GitHub Release** with the installable `.apk` attached.
-
-### Option B — Manual Upload via GitHub UI
-1. Go to your repository on GitHub → **Releases** → **Draft a new release**.
-2. Create a tag (e.g., `v1.1.0`) and title, and copy the matching release notes from [`CHANGELOG.md`](CHANGELOG.md).
-3. Drag and drop `releases/journal-v1.1.0.apk` into the **Attach binaries** box and click **Publish release**.
-
-*(Optional production signing: if you want GitHub Actions to also produce a release-key-signed APK, add `RELEASE_KEYSTORE_BASE64`, `STORE_PASSWORD`, and `KEY_PASSWORD` to **Settings → Secrets and variables → Actions**.)*
-
----
-
 ## Developer Setup & Local Build
 
 ### Tech Stack
@@ -90,28 +63,6 @@ GitHub Actions will automatically run `:app:testDebugUnitTest`, compile the APK,
 - **Android SDK** (`compileSdk 36`, `ANDROID_SDK_ROOT` configured)
 - **Gradle `9.3.1`** installed on `PATH`
 
-### Build & Test Commands
-
-1. **Restore debug keystore (if building a fresh clone without one):**
-   ```bash
-   if [ ! -f debug.keystore ] && [ -f debug.keystore.base64 ]; then
-     base64 -d debug.keystore.base64 > debug.keystore
-   fi
-   ```
-
-2. **Optional environment secrets:**
-   Copy `.env.example` to `.env` if adding any custom API keys (no Gemini API key is required for core gameplay; local `.env` and `debug.keystore` remain gitignored).
-
-3. **Run unit tests:**
-   ```bash
-   gradle :app:testDebugUnitTest
-   ```
-
-4. **Compile the installable APK:**
-   ```bash
-   gradle :app:assembleDebug
-   ```
-   The output APK is generated at `app/build/outputs/apk/debug/app-debug.apk`.
 
 ### Firebase Notes
 - **Guest Mode** works completely offline without any backend setup.
