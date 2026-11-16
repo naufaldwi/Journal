@@ -11,6 +11,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.example.model.AncestorRecord
 import com.example.model.AvatarAppearance
 import com.example.model.CareerTrack
+import com.example.model.CharacterSkills
 import com.example.model.DailyMission
 import com.example.model.DailyMissionState
 import com.example.model.DietPlan
@@ -153,6 +154,7 @@ class LocalGuestRepository(private val context: Context) {
         root.put("pronouns", life.pronouns)
         root.put("trait", life.trait.name)
         root.put("netWorth", life.netWorth)
+        root.put("loanDebt", life.loanDebt)
         root.put("hasDegree", life.hasDegree)
         root.put("inSchool", life.inSchool)
         root.put("educationType", life.educationType.name)
@@ -246,6 +248,17 @@ class LocalGuestRepository(private val context: Context) {
             put("stress", life.stats.stress)
             put("anxiety", life.stats.anxiety)
             put("karma", life.stats.karma)
+        })
+
+        root.put("skills", JSONObject().apply {
+            put("deductionLaw", life.skills.deductionLaw)
+            put("engineeringTech", life.skills.engineeringTech)
+            put("paintingArt", life.skills.paintingArt)
+            put("musicPerformance", life.skills.musicPerformance)
+            put("actingStage", life.skills.actingStage)
+            put("athleticDriving", life.skills.athleticDriving)
+            put("culinaryCraft", life.skills.culinaryCraft)
+            put("persuasionMedia", life.skills.persuasionMedia)
         })
 
         root.put("socialChannel", JSONObject().apply {
@@ -422,6 +435,18 @@ class LocalGuestRepository(private val context: Context) {
             totalXp = missionObj?.optInt("totalXp", 0) ?: 0
         )
 
+        val skObj = root.optJSONObject("skills")
+        val decodedSkills = CharacterSkills(
+            deductionLaw = skObj?.optInt("deductionLaw", 18) ?: 18,
+            engineeringTech = skObj?.optInt("engineeringTech", 18) ?: 18,
+            paintingArt = skObj?.optInt("paintingArt", 18) ?: 18,
+            musicPerformance = skObj?.optInt("musicPerformance", 18) ?: 18,
+            actingStage = skObj?.optInt("actingStage", 18) ?: 18,
+            athleticDriving = skObj?.optInt("athleticDriving", 18) ?: 18,
+            culinaryCraft = skObj?.optInt("culinaryCraft", 18) ?: 18,
+            persuasionMedia = skObj?.optInt("persuasionMedia", 18) ?: 18
+        )
+
         return LifeState(
             lifeId = root.getString("lifeId"),
             characterName = root.getString("characterName"),
@@ -453,10 +478,12 @@ class LocalGuestRepository(private val context: Context) {
                 anxiety = stObj.getInt("anxiety"),
                 karma = stObj.getInt("karma")
             ),
+            skills = decodedSkills,
             diet = runCatching { DietPlan.valueOf(root.getString("diet")) }.getOrDefault(DietPlan.WHOLE_FOOD),
             exercise = runCatching { ExerciseRoutine.valueOf(root.getString("exercise")) }.getOrDefault(ExerciseRoutine.QUIET_WALKS),
             sleep = runCatching { SleepSchedule.valueOf(root.getString("sleep")) }.getOrDefault(SleepSchedule.RESTORATIVE),
-            netWorth = root.getInt("netWorth"),
+            netWorth = root.getInt("netWorth").coerceAtLeast(0),
+            loanDebt = root.optInt("loanDebt", 0).coerceAtLeast(0),
             hasDegree = root.getBoolean("hasDegree"),
             inSchool = root.getBoolean("inSchool"),
             educationType = runCatching { EducationType.valueOf(root.optString("educationType", EducationType.NONE.name)) }.getOrDefault(EducationType.NONE),

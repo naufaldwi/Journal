@@ -43,6 +43,10 @@ import com.example.model.CareerTrack
 import com.example.model.EducationType
 import com.example.model.LifeState
 import com.example.model.Relationship
+import com.example.model.SkillActivity
+import com.example.ui.components.AdultLoansCard
+import com.example.ui.components.SkillActivitiesCard
+import com.example.ui.components.SkillsOverviewCard
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -54,6 +58,9 @@ fun CareerAndBondsScreen(
     onApplyCareer: (CareerTrack) -> Unit,
     onWorkExtraHours: () -> Unit,
     onBoostFame: () -> Unit,
+    onTrainSkill: (SkillActivity) -> Unit,
+    onTakeLoan: (Int) -> Unit,
+    onRepayLoan: (Int) -> Unit,
     onJoinCrime: () -> Unit,
     onCommitSyndicateOp: (Int) -> Unit,
     onLeaveCrime: () -> Unit,
@@ -83,11 +90,13 @@ fun CareerAndBondsScreen(
             )
 
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                listOf("Careers", "Underworld", "Bonds (${life.relationships.size})").forEachIndexed { index, label ->
+                val tabs = listOf("Careers", "Skills", "Crime", "Bonds")
+                tabs.forEachIndexed { index, label ->
                     SegmentedButton(
                         selected = selectedTab == index,
                         onClick = { selectedTab = index },
-                        shape = SegmentedButtonDefaults.itemShape(index = index, count = 3)
+                        shape = SegmentedButtonDefaults.itemShape(index = index, count = tabs.size),
+                        modifier = Modifier.testTag("life_tab_$index")
                     ) {
                         Text(label, maxLines = 1)
                     }
@@ -225,6 +234,8 @@ fun CareerAndBondsScreen(
 
                         items(CareerTrack.entries.filter { it != CareerTrack.UNEMPLOYED }) { track ->
                             val isCurrent = life.careerTrack == track
+                            val userSkill = life.skills.levelOf(track.primarySkill)
+                            val meetsSkill = userSkill >= track.minPrimarySkill
                             Card(
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                                 shape = RoundedCornerShape(18.dp),
@@ -242,7 +253,7 @@ fun CareerAndBondsScreen(
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(track.title, style = MaterialTheme.typography.titleMedium)
                                             val reqLabel = when {
-                                                track.requiresDegree -> "Degree / 78+ Intellect"
+                                                track.requiresDegree -> "${track.preferredEducation.label} / High Intellect"
                                                 track.preferredEducation != EducationType.NONE -> "${track.preferredEducation.label} / Talent"
                                                 else -> "Open Entry"
                                             }
@@ -266,6 +277,11 @@ fun CareerAndBondsScreen(
                                         }
                                     }
                                     Text(
+                                        text = "Skill Gate: ${track.primarySkill.label} $userSkill/${track.minPrimarySkill} (Secondary: ${track.secondarySkill.label})",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (meetsSkill) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                                    )
+                                    Text(
                                         text = "Ladder: ${track.rungs.joinToString(" → ") { it.first }}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -273,7 +289,8 @@ fun CareerAndBondsScreen(
                                     if (!isCurrent && life.isAlive) {
                                         OutlinedButton(
                                             onClick = { onApplyCareer(track) },
-                                            shape = RoundedCornerShape(12.dp)
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier.testTag("apply_career_${track.name}")
                                         ) {
                                             Text("Apply for ${track.rungs.first().first}")
                                         }
@@ -285,6 +302,23 @@ fun CareerAndBondsScreen(
                 }
 
                 1 -> {
+                    LazyColumn(
+                        contentPadding = PaddingValues(bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        item { SkillsOverviewCard(life = life) }
+                        item { SkillActivitiesCard(life = life, onTrainSkill = onTrainSkill) }
+                        item {
+                            AdultLoansCard(
+                                life = life,
+                                onTakeLoan = onTakeLoan,
+                                onRepayLoan = onRepayLoan
+                            )
+                        }
+                    }
+                }
+
+                2 -> {
                     LazyColumn(
                         contentPadding = PaddingValues(bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)

@@ -19,6 +19,7 @@ import com.example.model.LifeState
 import com.example.model.LifeStats
 import com.example.model.LeaderboardEntryDoc
 import com.example.model.MissionType
+import com.example.model.SkillActivity
 import com.example.model.SleepSchedule
 import com.example.model.SocialNiche
 import com.example.model.StreamFormat
@@ -276,6 +277,40 @@ class JournalViewModel(
         _statusMessage.value = composeActionMessage("Completed focused sprint at work.", missionOut)
     }
 
+    fun performSkillActivity(activity: SkillActivity) {
+        val current = uiState.value.activeLife ?: return
+        val (result, msg) = LifeEngine.performSkillActivity(current, activity)
+        if (result.updatedLife != current) {
+            _activeLife.value = result.updatedLife
+            persistLifeAndRewards(
+                result.updatedLife,
+                result.newlyUnlockedAchievements,
+                result.sparklesEarned
+            )
+        }
+        _statusMessage.value = msg
+    }
+
+    fun takeLoan(amount: Int) {
+        val current = uiState.value.activeLife ?: return
+        val (updated, msg) = LifeEngine.takeLoan(current, amount)
+        if (updated != current) {
+            _activeLife.value = updated
+            persistLifeAndRewards(updated, emptySet(), 0)
+        }
+        _statusMessage.value = msg
+    }
+
+    fun repayLoan(amount: Int) {
+        val current = uiState.value.activeLife ?: return
+        val (updated, msg) = LifeEngine.repayLoan(current, amount)
+        if (updated != current) {
+            _activeLife.value = updated
+            persistLifeAndRewards(updated, emptySet(), 0)
+        }
+        _statusMessage.value = msg
+    }
+
     fun boostFameAndCraft() {
         val current = uiState.value.activeLife ?: return
         val result = LifeEngine.boostFameAndCraft(current)
@@ -356,6 +391,15 @@ class JournalViewModel(
     fun performWellnessAction(action: String) {
         val current = uiState.value.activeLife ?: return
         if (!current.isAlive) return
+        val cost = when (action) {
+            "checkup" -> 180
+            "therapy" -> 140
+            else -> 450
+        }
+        if (current.netWorth < cost) {
+            _statusMessage.value = "Need $$cost cash for wellness care (earn more or take an adult loan)."
+            return
+        }
         val result = LifeEngine.performWellnessAction(current, action)
         val missionOut = LifeEngine.progressMissionByType(result.updatedLife, MissionType.MINDFUL_CHECKIN)
         _activeLife.value = missionOut.updatedLife
@@ -415,6 +459,10 @@ class JournalViewModel(
     fun launchMerchLine(merchName: String) {
         val current = uiState.value.activeLife ?: return
         if (!current.isAlive) return
+        if (current.netWorth < 1500) {
+            _statusMessage.value = "Need $1,500 cash to launch merch (earn more or take an adult loan)."
+            return
+        }
         val result = LifeEngine.launchMerchLine(current, merchName)
         _activeLife.value = result.updatedLife
         persistLifeAndRewards(result.updatedLife, result.newlyUnlockedAchievements, result.sparklesEarned)
@@ -478,6 +526,10 @@ class JournalViewModel(
     fun interactRelationship(relId: String, action: String) {
         val current = uiState.value.activeLife ?: return
         if (!current.isAlive) return
+        if (action == "gift" && current.netWorth < 150) {
+            _statusMessage.value = "Need $150 cash for a thoughtful gift (earn more or take an adult loan)."
+            return
+        }
         val result = LifeEngine.interactRelationship(current, relId, action)
         val missionOut = LifeEngine.progressMissionByType(result.updatedLife, MissionType.CONNECT_BOND)
         _activeLife.value = missionOut.updatedLife

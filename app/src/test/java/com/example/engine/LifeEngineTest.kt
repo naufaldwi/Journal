@@ -2,6 +2,7 @@ package com.example.engine
 
 import com.example.model.AvatarAppearance
 import com.example.model.CareerTrack
+import com.example.model.CharacterSkills
 import com.example.model.DailyMission
 import com.example.model.DailyMissionState
 import com.example.model.DietPlan
@@ -13,10 +14,12 @@ import com.example.model.LifeStage
 import com.example.model.LifeStats
 import com.example.model.MissionType
 import com.example.model.Relationship
+import com.example.model.SkillActivity
 import com.example.model.SleepSchedule
 import com.example.model.StreamFormat
 import com.example.model.TemperamentTrait
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -113,7 +116,12 @@ class LifeEngineTest {
             trait = TemperamentTrait.ARTISTIC,
             appearance = AvatarAppearance(),
             startingStats = LifeStats(creativity = 85)
-        ).updatedLife.copy(currentAge = 22, completedEducation = EducationType.MUSIC_ACADEMY, hasDegree = true)
+        ).updatedLife.copy(
+            currentAge = 22,
+            completedEducation = EducationType.MUSIC_ACADEMY,
+            hasDegree = true,
+            skills = CharacterSkills(musicPerformance = 55)
+        )
 
         val (guitaristLife, msg) = LifeEngine.applyForCareer(base, CareerTrack.BAND_GUITARIST)
         assertTrue(msg.contains("Garage Band Guitarist"))
@@ -256,8 +264,8 @@ class LifeEngineTest {
     }
 
     @Test
-    fun dailyMissions_generateThreeTasksAwardXpRewardsAndBonus() {
-        val base = LifeEngine.createNewLife(
+    fun dailyMissions_gatedUntilAge13ThenGenerateThreeTasksAndAwardRewards() {
+        val infant = LifeEngine.createNewLife(
             characterName = "Tari Wijaya",
             birthplace = "Jakarta, Indonesia",
             birthYear = 2001,
@@ -267,6 +275,14 @@ class LifeEngineTest {
             startingStats = LifeStats(fitness = 60, intellect = 60)
         ).updatedLife
 
+        // Under age 13: Daily Missions must remain empty/locked
+        assertEquals(0, infant.currentAge)
+        assertTrue(infant.missionState.missions.isEmpty())
+        val preTeen = LifeEngine.ensureDailyMissions(infant.copy(currentAge = 12))
+        assertTrue(preTeen.missionState.missions.isEmpty())
+
+        // Starting at age 13: Daily Missions generate 3 distinct tasks
+        val base = LifeEngine.ensureDailyMissions(infant.copy(currentAge = 13))
         assertEquals(3, base.missionState.missions.size)
         assertEquals(3, base.missionState.missions.map { it.type }.distinct().size)
 
@@ -309,5 +325,114 @@ class LifeEngineTest {
         assertEquals(3, nextDay.missionState.missions.size)
         assertEquals(640, nextDay.missionState.totalXp)
         assertTrue(nextDay.missionState.missions.none { it.isCompleted })
+    }
+
+    @Test
+    fun schoolAutoBoostsSkills_andSkillsGateCareers() {
+        val youngAdult = LifeEngine.createNewLife(
+            characterName = "Farhan Pratama",
+            birthplace = "Jakarta, Indonesia",
+            birthYear = 2000,
+            pronouns = "he/him",
+            trait = TemperamentTrait.RESILIENT,
+            appearance = AvatarAppearance(),
+            startingStats = LifeStats(intellect = 65, creativity = 55)
+        ).updatedLife.copy(currentAge = 18, netWorth = 10_000)
+
+        // Cannot enter Law career before training Deduction & Law skill + degree
+        val (deniedLife, deniedMsg) = LifeEngine.applyForCareer(youngAdult, CareerTrack.LAW)
+        assertEquals(CareerTrack.UNEMPLOYED, deniedLife.careerTrack)
+        assertTrue(deniedMsg.contains("Requires"))
+
+        // Enrolling in Law School automatically boosts Deduction & Law, Persuasion, and Intellect
+        val (inLawSchool, lawMsg) = LifeEngine.enrollInEducation(youngAdult, EducationType.LAW_SCHOOL)
+        assertTrue(inLawSchool.inSchool)
+        assertTrue(lawMsg.contains("Law School"))
+        assertTrue(inLawSchool.skills.deductionLaw > youngAdult.skills.deductionLaw)
+        assertTrue(inLawSchool.skills.persuasionMedia > youngAdult.skills.persuasionMedia)
+        assertTrue(inLawSchool.stats.intellect > youngAdult.stats.intellect)
+
+        // Aging in Law School continues auto-boosting until graduation at age 22
+        var lawGrad = inLawSchool
+        repeat(4) {
+            lawGrad = LifeEngine.ageUp(lawGrad).updatedLife.copy(pendingPrompt = null)
+        }
+        assertFalse(lawGrad.inSchool)
+        assertTrue(lawGrad.hasDegree)
+        assertEquals(EducationType.LAW_SCHOOL, lawGrad.completedEducation)
+        assertTrue(lawGrad.skills.deductionLaw >= CareerTrack.LAW.minPrimarySkill)
+
+        val (attorneyLife, joinMsg) = LifeEngine.applyForCareer(lawGrad, CareerTrack.LAW)
+        assertEquals(CareerTrack.LAW, attorneyLife.careerTrack)
+        assertTrue(joinMsg.contains("Legal Paralegal"))
+
+        // Art & Design Conservatory auto-boosts painting, music, acting & creativity
+        val artApplicant = youngAdult.copy(netWorth = 10_000)
+        val (artEnrolled, _) = LifeEngine.enrollInEducation(artApplicant, EducationType.ART_UNI)
+        assertTrue(artEnrolled.skills.paintingArt > artApplicant.skills.paintingArt)
+        assertTrue(artEnrolled.skills.musicPerformance > artApplicant.skills.musicPerformance)
+        assertTrue(artEnrolled.skills.actingStage > artApplicant.skills.actingStage)
+        assertTrue(artEnrolled.stats.creativity > artApplicant.stats.creativity)
+    }
+
+    @Test
+    fun skillActivity_increasesSkillBarAndRespectsCashGuard() {
+        val student = LifeEngine.createNewLife(
+            characterName = "Nadia Putri",
+            birthplace = "Bandung, Indonesia",
+            birthYear = 2004,
+            pronouns = "she/her",
+            trait = TemperamentTrait.ARTISTIC,
+            appearance = AvatarAppearance(),
+            startingStats = LifeStats(energy = 80)
+        ).updatedLife.copy(currentAge = 16, netWorth = 20)
+
+        // Paid activity blocked when cash is insufficient (never drops below 0)
+        val (blockedRes, blockedMsg) = LifeEngine.performSkillActivity(student, SkillActivity.PAINT_STUDIO)
+        assertEquals(20, blockedRes.updatedLife.netWorth)
+        assertTrue(blockedMsg.contains("Need $50"))
+
+        // Free activity succeeds and boosts skill bar + intellect
+        val (trialRes, trialMsg) = LifeEngine.performSkillActivity(student, SkillActivity.MOCK_TRIAL)
+        assertTrue(trialRes.updatedLife.skills.deductionLaw > student.skills.deductionLaw)
+        assertTrue(trialMsg.contains("/100"))
+        assertTrue(trialRes.updatedLife.netWorth >= 0)
+    }
+
+    @Test
+    fun moneyNeverGoesNegative_andOnlyAdultsCanTakeLoans() {
+        val minor = LifeEngine.createNewLife(
+            characterName = "Budi Santoso",
+            birthplace = "Surabaya, Indonesia",
+            birthYear = 2010,
+            pronouns = "he/him",
+            trait = TemperamentTrait.AMBITIOUS,
+            appearance = AvatarAppearance(),
+            startingStats = LifeStats()
+        ).updatedLife.copy(currentAge = 15, netWorth = 10)
+
+        // Minor cannot borrow
+        val (stillMinor, minorMsg) = LifeEngine.takeLoan(minor, 5_000)
+        assertEquals(0, stillMinor.loanDebt)
+        assertEquals(10, stillMinor.netWorth)
+        assertTrue(minorMsg.contains("18+"))
+
+        // Adult with $0 cannot go negative on expenses or aging
+        val brokeAdult = minor.copy(currentAge = 24, netWorth = 0)
+        val agedBroke = LifeEngine.ageUp(brokeAdult).updatedLife
+        assertTrue(agedBroke.netWorth >= 0)
+        val wellnessBlocked = LifeEngine.performWellnessAction(brokeAdult, "retreat").updatedLife
+        assertTrue(wellnessBlocked.netWorth >= 0)
+
+        // Adult can take a loan, use cash, and repay cleanly without going negative
+        val (borrowed, loanMsg) = LifeEngine.takeLoan(brokeAdult, 15_000)
+        assertEquals(15_000, borrowed.netWorth)
+        assertEquals(15_000, borrowed.loanDebt)
+        assertTrue(loanMsg.contains("Approved"))
+
+        val (repaid, repayMsg) = LifeEngine.repayLoan(borrowed.copy(netWorth = 4_000), 10_000)
+        assertEquals(0, repaid.netWorth)
+        assertEquals(11_000, repaid.loanDebt)
+        assertTrue(repayMsg.contains("Paid"))
     }
 }

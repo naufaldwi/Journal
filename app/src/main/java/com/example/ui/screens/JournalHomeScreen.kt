@@ -116,6 +116,7 @@ fun JournalHomeScreen(
                         life = life,
                         sparkles = sparkles,
                         moneyText = moneyFmt.format(life.netWorth),
+                        loanText = if (life.loanDebt > 0) "Loan ${moneyFmt.format(life.loanDebt)}" else null,
                         onOpenWellness = { showWellnessDialog = true }
                     )
                 }
@@ -141,13 +142,32 @@ fun JournalHomeScreen(
                             )
                         }
                     }
-                    item {
-                        DailyMissionsCard(
-                            missionState = life.missionState,
-                            isCharacterAlive = life.isAlive,
-                            onCompleteMission = onCompleteDailyMission,
-                            onClaimDailyBonus = onClaimDailyMissionBonus
-                        )
+                    if (life.currentAge >= 13) {
+                        item {
+                            DailyMissionsCard(
+                                missionState = life.missionState,
+                                isCharacterAlive = life.isAlive,
+                                onCompleteMission = onCompleteDailyMission,
+                                onClaimDailyBonus = onClaimDailyMissionBonus
+                            )
+                        }
+                    } else {
+                        item {
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("daily_missions_locked_card")
+                            ) {
+                                Text(
+                                    text = "Daily Missions unlock at Age 13 — enjoy childhood & build foundational skills first.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -258,6 +278,7 @@ private fun CharacterSummaryCard(
     life: LifeState,
     sparkles: Int,
     moneyText: String,
+    loanText: String?,
     onOpenWellness: () -> Unit
 ) {
     Card(
@@ -297,11 +318,16 @@ private fun CharacterSummaryCard(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        StatBadge("Lv.${life.missionState.level}")
+                        if (life.currentAge >= 13) {
+                            StatBadge("Lv.${life.missionState.level}")
+                        }
                         StatBadge("Gen ${life.generation}")
                         StatBadge("Age ${life.currentAge}")
                         StatBadge("${life.currentYear}")
                         StatBadge(moneyText)
+                        if (loanText != null) {
+                            StatBadge(loanText)
+                        }
                         StatBadge("$sparkles ✦")
                         if (life.fame > 0 || life.careerTrack.isFameTrack) {
                             StatBadge("Fame ${life.fame}")

@@ -3,6 +3,7 @@ package com.example.engine
 import com.example.model.AncestorRecord
 import com.example.model.AvatarAppearance
 import com.example.model.CareerTrack
+import com.example.model.CharacterSkills
 import com.example.model.ChoiceOption
 import com.example.model.DailyMission
 import com.example.model.DailyMissionState
@@ -17,6 +18,8 @@ import com.example.model.LifeState
 import com.example.model.LifeStats
 import com.example.model.MissionType
 import com.example.model.Relationship
+import com.example.model.SkillActivity
+import com.example.model.SkillType
 import com.example.model.SleepSchedule
 import com.example.model.SocialChannel
 import com.example.model.SocialNiche
@@ -123,6 +126,14 @@ object LifeEngine {
             detail = "$cleanName was born in $birthplace in $birthYear ($pronouns), carrying a ${trait.label.lowercase()} spirit."
         )
 
+        val traitSkills = when (trait) {
+            TemperamentTrait.CURIOUS -> CharacterSkills(deductionLaw = 24, engineeringTech = 24)
+            TemperamentTrait.RESILIENT -> CharacterSkills(athleticDriving = 24, culinaryCraft = 22)
+            TemperamentTrait.EMPATHETIC -> CharacterSkills(persuasionMedia = 24, culinaryCraft = 22)
+            TemperamentTrait.ARTISTIC -> CharacterSkills(paintingArt = 26, musicPerformance = 26, actingStage = 24)
+            TemperamentTrait.AMBITIOUS -> CharacterSkills(persuasionMedia = 24, deductionLaw = 22)
+        }.clamped()
+
         val rawLife = LifeState(
             lifeId = "life_${System.currentTimeMillis()}_${Random.nextInt(100, 999)}",
             characterName = cleanName,
@@ -134,6 +145,7 @@ object LifeEngine {
             trait = trait,
             appearance = appearance,
             stats = traitStats,
+            skills = traitSkills,
             netWorth = 500,
             socialChannel = SocialChannel(
                 handle = "@$handleBase",
@@ -414,8 +426,26 @@ object LifeEngine {
             creativity = (s.creativity + if (life.trait == TemperamentTrait.ARTISTIC || life.educationType == EducationType.ART_UNI || life.educationType == EducationType.MUSIC_ACADEMY) 2 else 0).coerceIn(0, 100)
         )
 
-        // 3. Finances, Career & Fame Decay Mechanics
-        var cash = life.netWorth
+        // 2b. School & Career Automatic Skill Progression
+        var skills = life.skills
+        if (nextAge in 6..17) {
+            skills = skills.copy(
+                deductionLaw = skills.deductionLaw + 2,
+                engineeringTech = skills.engineeringTech + 2,
+                persuasionMedia = skills.persuasionMedia + 2,
+                paintingArt = skills.paintingArt + 1,
+                musicPerformance = skills.musicPerformance + 1
+            ).clamped()
+        }
+        if (life.inSchool && life.educationType != EducationType.NONE) {
+            val (boostedSkills, boostedStats) = applyEducationSkillBoost(skills, s, life.educationType)
+            skills = boostedSkills
+            s = boostedStats
+        }
+
+        // 3. Finances, Non-Negative Cash, Adult Loans, Career & Fame Decay Mechanics
+        var cash = life.netWorth.coerceAtLeast(0)
+        var loanDebt = life.loanDebt.coerceAtLeast(0)
         var economyMult = life.economyMultiplier
         var perf = life.careerPerformance
         var rung = life.careerRung
@@ -434,10 +464,14 @@ object LifeEngine {
         }
 
         if (nextAge >= 18) {
+            if (loanDebt > 0) {
+                loanDebt += (loanDebt * 0.04f).toInt().coerceAtLeast(100)
+            }
             val salary = if (!inPrisonThisYear && !inSchool && track != CareerTrack.UNEMPLOYED) {
                 val base = track.rungs.getOrElse(rung) { track.rungs.last() }.second
                 val fameMult = if (track.isFameTrack) 1.0f + (fame * 0.008f) else 1.0f
-                (base * economyMult * sleep.productivityBoost * fameMult).toInt()
+                val skillBonusMult = 0.9f + (skills.levelOf(track.primarySkill) * 0.003f)
+                (base * economyMult * sleep.productivityBoost * fameMult * skillBonusMult).toInt()
             } else 0
             val livingCost = when {
                 inPrisonThisYear -> 0
@@ -448,11 +482,17 @@ object LifeEngine {
                 (life.socialChannel.followers * 0.14 * (life.socialChannel.reputation / 60.0)).toInt().coerceAtMost(95000)
             } else 0
             val sponsorIncome = if (!inPrisonThisYear) life.socialChannel.annualSponsorIncome else 0
-            cash += (salary + merchPassive + sponsorIncome - livingCost)
+            // Cash never goes negative automatically
+            cash = (cash + salary + merchPassive + sponsorIncome - livingCost).coerceAtLeast(0)
 
             if (!inPrisonThisYear && !inSchool && track != CareerTrack.UNEMPLOYED) {
-                val perfGain = ((s.energy - 50) / 12) + ((s.intellect - 50) / 18) + Random.nextInt(-3, 6)
+                val primarySkillVal = skills.levelOf(track.primarySkill)
+                val secondarySkillVal = skills.levelOf(track.secondarySkill)
+                val skillFactor = ((primarySkillVal - 40) / 8) + ((secondarySkillVal - 40) / 14)
+                val perfGain = ((s.energy - 50) / 14) + skillFactor + Random.nextInt(-2, 5)
                 perf = (perf + perfGain).coerceIn(15, 100)
+                // Active work hones the career's primary skill naturally
+                skills = skills.withBoost(track.primarySkill, 2)
                 if (perf >= 82 && rung < track.rungs.lastIndex && Random.nextFloat() < 0.45f) {
                     rung += 1
                     perf = 68
@@ -469,9 +509,9 @@ object LifeEngine {
                             category = if (track.isFameTrack) EntryCategory.FAME else EntryCategory.CAREER,
                             title = "Promoted to $newRole",
                             detail = if (track.isFameTrack) {
-                                "Breakthrough acclaim lifted your profile as $newRole (Fame $fame)."
+                                "Your ${track.primarySkill.label} skill ($primarySkillVal) lifted your profile as $newRole (Fame $fame)."
                             } else {
-                                "Steady craft and poise earned a promotion in ${track.title}."
+                                "Strong ${track.primarySkill.label} ($primarySkillVal) earned a promotion in ${track.title}."
                             }
                         )
                     )
@@ -618,10 +658,20 @@ object LifeEngine {
                     narrative = "Secondary school is behind you. Choose how to shape your next chapter.",
                     options = listOf(
                         ChoiceOption(
+                            id = "opt_law_school",
+                            label = "Enroll in Law School",
+                            effectHint = "Auto-boosts Deduction, Rhetoric & Intellect · Unlocks Law",
+                            outcomeSummary = "You entered moot courtrooms and casebooks, sharpening deduction and rhetoric.",
+                            intellectDelta = 12,
+                            stressDelta = 8,
+                            cashDelta = -4500,
+                            enrollEducation = EducationType.LAW_SCHOOL
+                        ),
+                        ChoiceOption(
                             id = "opt_art_uni",
                             label = "Enroll in Art & Design Conservatory",
-                            effectHint = "Unlocks Fine Artist, Actor, Model · +Creativity",
-                            outcomeSummary = "You stepped into sunlit painting and theatre studios at the art conservatory.",
+                            effectHint = "Auto-boosts Painting, Music, Acting & Creativity",
+                            outcomeSummary = "You stepped into sunlit painting, music, and theatre studios at the conservatory.",
                             creativityDelta = 14,
                             stressDelta = 6,
                             cashDelta = -3600,
@@ -630,7 +680,7 @@ object LifeEngine {
                         ChoiceOption(
                             id = "opt_music_academy",
                             label = "Enroll in Music Conservatory",
-                            effectHint = "Unlocks Singer, Guitarist, Drummer · +Fame",
+                            effectHint = "Auto-boosts Guitar, Drums, Vocals & Stagecraft · +Fame",
                             outcomeSummary = "You auditioned with your instrument and joined a vibrant band conservatory.",
                             creativityDelta = 12,
                             fameDelta = 8,
@@ -640,7 +690,7 @@ object LifeEngine {
                         ChoiceOption(
                             id = "opt_uni",
                             label = "Enroll in University",
-                            effectHint = "Unlocks Software, Medicine, Design · +Intellect",
+                            effectHint = "Auto-boosts Engineering, Logic & Intellect",
                             outcomeSummary = "You unpacked in a sunlit dorm and committed to university studies.",
                             intellectDelta = 12,
                             stressDelta = 8,
@@ -665,6 +715,9 @@ object LifeEngine {
                 inSchool = false
                 hasDegree = true
                 completedEdu = eduType
+                val (gradSkills, gradStats) = applyEducationSkillBoost(skills, s, eduType)
+                skills = gradSkills
+                s = gradStats
                 val (fn, ln) = CountryCatalog.randomNameForBirthplace(life.birthplace)
                 val peer = Relationship(
                     id = "grad_peer_${UUID.randomUUID().toString().take(6)}",
@@ -681,7 +734,7 @@ object LifeEngine {
                         year = nextYear,
                         category = EntryCategory.MILESTONE,
                         title = "${eduType.label} Graduation",
-                        detail = "Completed ${eduType.label}, unlocking specialized creative and professional paths."
+                        detail = "Graduated from ${eduType.label}; specialized skills and career readiness surged."
                     )
                 )
                 s = s.copy(happiness = (s.happiness + 12).coerceIn(0, 100), intellect = (s.intellect + 8).coerceIn(0, 100))
@@ -738,6 +791,9 @@ object LifeEngine {
             inSchool = false
             hasDegree = true
             completedEdu = eduType
+            val (gradSkills, gradStats) = applyEducationSkillBoost(skills, s, eduType)
+            skills = gradSkills
+            s = gradStats
             newEntries.add(
                 JournalEntry(
                     id = "e_adult_grad_$nextAge",
@@ -745,7 +801,7 @@ object LifeEngine {
                     year = nextYear,
                     category = EntryCategory.MILESTONE,
                     title = "Completed ${eduType.label}",
-                    detail = "Earned your diploma in ${eduType.label}, opening fresh doors in craft and career."
+                    detail = "Earned your diploma in ${eduType.label}, sharply boosting matching career skills."
                 )
             )
         }
@@ -779,7 +835,7 @@ object LifeEngine {
             } else if (randomOutcome.entry != null) {
                 newEntries.add(randomOutcome.entry)
                 s = randomOutcome.statsAfter
-                cash += randomOutcome.cashDelta
+                cash = (cash + randomOutcome.cashDelta).coerceAtLeast(0)
                 economyMult = (economyMult + randomOutcome.economyDelta).coerceIn(0.75f, 1.35f)
                 updatedChannel = updatedChannel.copy(
                     followers = (updatedChannel.followers + randomOutcome.followerDelta).coerceAtLeast(0)
@@ -838,7 +894,9 @@ object LifeEngine {
             isAlive = isAlive,
             appearance = updatedAppearance,
             stats = s.clamped(),
-            netWorth = cash,
+            skills = skills.clamped(),
+            netWorth = cash.coerceAtLeast(0),
+            loanDebt = loanDebt.coerceAtLeast(0),
             economyMultiplier = economyMult,
             hasDegree = hasDegree,
             inSchool = inSchool,
@@ -858,12 +916,12 @@ object LifeEngine {
             deathCause = deathCause
         )
 
-        val (evaluated, unlocked, reward) = evaluateAchievements(nextLife)
+        val (evaluated, unlocked, reward) = evaluateAchievements(ensureDailyMissions(nextLife))
         return TurnResult(evaluated, unlocked, reward)
     }
 
     fun resolveChoice(life: LifeState, option: ChoiceOption): TurnResult {
-        val s = life.stats.copy(
+        var s = life.stats.copy(
             health = life.stats.health + option.healthDelta,
             happiness = life.stats.happiness + option.happinessDelta,
             intellect = life.stats.intellect + option.intellectDelta,
@@ -875,6 +933,25 @@ object LifeEngine {
             diseaseRisk = life.stats.diseaseRisk + option.diseaseRiskDelta,
             karma = life.stats.karma + option.karmaDelta
         ).clamped()
+
+        var nextSkills = life.skills
+        val newEdu = option.enrollEducation ?: life.educationType
+        if (option.enrollEducation != null) {
+            val (bSkills, bStats) = applyEducationSkillBoost(nextSkills, s, option.enrollEducation)
+            nextSkills = bSkills
+            s = bStats
+        }
+
+        // Prevent negative cash: adults taking tuition shortfall can cover remaining balance with a student loan
+        var nextCash = life.netWorth + option.cashDelta
+        var nextDebt = life.loanDebt
+        if (nextCash < 0) {
+            val shortfall = -nextCash
+            if (life.currentAge >= 18 && option.enrollEducation != null) {
+                nextDebt += shortfall
+            }
+            nextCash = 0
+        }
 
         val updatedRels = if (option.relationshipBoostAll != 0) {
             life.relationships.map {
@@ -894,11 +971,12 @@ object LifeEngine {
 
         val nextTrack = if (option.id == "opt_creator_leap") CareerTrack.CREATOR else life.careerTrack
         val newFame = (life.fame + option.fameDelta).coerceIn(0, 100)
-        val newEdu = option.enrollEducation ?: life.educationType
 
         val nextLife = life.copy(
             stats = s,
-            netWorth = life.netWorth + option.cashDelta,
+            skills = nextSkills.clamped(),
+            netWorth = nextCash.coerceAtLeast(0),
+            loanDebt = nextDebt.coerceAtLeast(0),
             inSchool = if (option.enrollEducation != null) true else life.inSchool,
             educationType = newEdu,
             careerTrack = nextTrack,
@@ -923,7 +1001,11 @@ object LifeEngine {
         if (life.currentAge < 18) return life to "Available starting at age 18."
         if (life.inSchool) return life to "Already enrolled in ${life.educationType.label}."
         if (edu == EducationType.NONE) return life to "Choose a conservatory or university."
+        if (life.netWorth < edu.annualCost) {
+            return life to "Need $${edu.annualCost} cash to enroll. Earn cash or take an adult loan first!"
+        }
 
+        val (boostedSkills, boostedStats) = applyEducationSkillBoost(life.skills, life.stats, edu)
         val entry = JournalEntry(
             id = "e_edu_${life.currentAge}_${Random.nextInt(999)}",
             age = life.currentAge,
@@ -936,9 +1018,11 @@ object LifeEngine {
             inSchool = true,
             educationType = edu,
             crimeActive = false,
-            netWorth = life.netWorth - edu.annualCost,
+            skills = boostedSkills,
+            stats = boostedStats,
+            netWorth = (life.netWorth - edu.annualCost).coerceAtLeast(0),
             entries = (listOf(entry) + life.entries).take(120)
-        ) to "Enrolled in ${edu.label}!"
+        ) to "Enrolled in ${edu.label}! Matching skills boosted."
     }
 
     fun applyForCareer(life: LifeState, track: CareerTrack): Pair<LifeState, String> {
@@ -947,9 +1031,17 @@ object LifeEngine {
         if (life.currentAge < 18) return life to "Wait until age 18 to start a career."
         if (life.inSchool) return life to "Finish your studies first (age 22 or next year)."
 
+        val currentPrimarySkill = life.skills.levelOf(track.primarySkill)
+        if (currentPrimarySkill < track.minPrimarySkill) {
+            return life to "Requires ${track.minPrimarySkill}+ ${track.primarySkill.label} (currently $currentPrimarySkill). Train in Skill Activities or ${track.preferredEducation.label}!"
+        }
+
         val hasMatchingEdu = life.completedEducation == track.preferredEducation || life.hasDegree
         if (track.requiresDegree && !hasMatchingEdu && life.stats.intellect < 78) {
             return life to "${track.title} requires ${track.preferredEducation.label} or 78+ Intellect."
+        }
+        if (track == CareerTrack.LAW && life.completedEducation != EducationType.LAW_SCHOOL && life.stats.intellect < 82) {
+            return life to "${track.title} requires Law School or 82+ Intellect."
         }
         if ((track == CareerTrack.FINE_ART || track == CareerTrack.ACTING || track == CareerTrack.MODELING) &&
             life.completedEducation != EducationType.ART_UNI && life.stats.creativity < 72
@@ -969,12 +1061,12 @@ object LifeEngine {
             year = life.currentYear,
             category = EntryCategory.CAREER,
             title = "Joined ${track.title}",
-            detail = "Began a new chapter as ${track.rungs.first().first}."
+            detail = "Entered as ${track.rungs.first().first} (${track.primarySkill.label} $currentPrimarySkill)."
         )
         return life.copy(
             careerTrack = track,
             careerRung = 0,
-            careerPerformance = 64,
+            careerPerformance = (58 + (currentPrimarySkill / 5)).coerceIn(55, 85),
             crimeActive = false,
             fame = startFame,
             peakFame = maxOf(life.peakFame, startFame),
@@ -991,6 +1083,9 @@ object LifeEngine {
             stress = life.stats.stress + 9,
             anxiety = life.stats.anxiety + 5
         ).clamped()
+        val skillBoosted = life.skills
+            .withBoost(life.careerTrack.primarySkill, 2)
+            .withBoost(life.careerTrack.secondarySkill, 1)
         val bonus = (life.currentSalary * 0.08).toInt().coerceAtLeast(400)
         val fameGain = if (life.careerTrack.isFameTrack) 6 else 0
         val newFame = (life.fame + fameGain).coerceIn(0, 100)
@@ -1000,10 +1095,11 @@ object LifeEngine {
             year = life.currentYear,
             category = EntryCategory.CAREER,
             title = "Focused Sprint at Work",
-            detail = "Invested extra hours into ${life.currentCareerTitle}, earning a $$bonus bonus."
+            detail = "Honed ${life.careerTrack.primarySkill.label} (+2) as ${life.currentCareerTitle}, earning a $$bonus bonus."
         )
         val updated = life.copy(
             stats = s,
+            skills = skillBoosted,
             netWorth = life.netWorth + bonus,
             careerPerformance = (life.careerPerformance + 12).coerceAtMost(100),
             fame = newFame,
@@ -1011,6 +1107,133 @@ object LifeEngine {
             entries = (listOf(entry) + life.entries).take(120)
         )
         return evaluateAchievements(updated)
+    }
+
+    fun performSkillActivity(life: LifeState, activity: SkillActivity): Pair<TurnResult, String> {
+        if (!life.isAlive) return TurnResult(life, emptySet(), 0) to "This chapter has closed."
+        if (life.prisonYearsLeft > 0) return TurnResult(life, emptySet(), 0) to "Unavailable while incarcerated."
+        if (life.currentAge < 6) return TurnResult(life, emptySet(), 0) to "Skill training unlocks at age 6."
+        if (activity.cashCost > 0 && life.netWorth < activity.cashCost) {
+            return TurnResult(life, emptySet(), 0) to "Need $${activity.cashCost} cash for ${activity.title}."
+        }
+        if (life.stats.energy < 10) {
+            return TurnResult(life, emptySet(), 0) to "Too tired — rest or eat well first."
+        }
+
+        val updatedSkills = life.skills.withBoost(activity.skill, activity.skillGain).let {
+            if (activity == SkillActivity.THEATRE_WORKSHOP) it.withBoost(SkillType.PERSUASION_MEDIA, 2) else it
+        }
+        val updatedStats = when (activity) {
+            SkillActivity.MOCK_TRIAL, SkillActivity.SYSTEMS_LAB -> life.stats.copy(intellect = life.stats.intellect + 3)
+            SkillActivity.PAINT_STUDIO, SkillActivity.BAND_REHEARSAL, SkillActivity.TEST_KITCHEN -> life.stats.copy(creativity = life.stats.creativity + 3)
+            SkillActivity.TRACK_DRILLS -> life.stats.copy(fitness = life.stats.fitness + 3)
+            SkillActivity.THEATRE_WORKSHOP, SkillActivity.DEBATE_CLUB -> life.stats.copy(creativity = life.stats.creativity + 2, intellect = life.stats.intellect + 2)
+        }.copy(energy = life.stats.energy - activity.energyCost).clamped()
+
+        val entry = JournalEntry(
+            id = "e_skill_${life.currentAge}_${Random.nextInt(9999)}",
+            age = life.currentAge,
+            year = life.currentYear,
+            category = EntryCategory.MILESTONE,
+            title = "Trained: ${activity.title}",
+            detail = "Practiced ${activity.skill.label} (${activity.summary})."
+        )
+        val updatedLife = life.copy(
+            skills = updatedSkills,
+            stats = updatedStats,
+            netWorth = (life.netWorth - activity.cashCost).coerceAtLeast(0),
+            entries = (listOf(entry) + life.entries).take(120)
+        )
+        val result = evaluateAchievements(updatedLife)
+        return result to "${activity.skill.label} is now ${result.updatedLife.skills.levelOf(activity.skill)}/100!"
+    }
+
+    fun takeLoan(life: LifeState, amount: Int): Pair<LifeState, String> {
+        if (!life.isAlive) return life to "This chapter has closed."
+        if (life.prisonYearsLeft > 0) return life to "Cannot take a loan while incarcerated."
+        if (life.currentAge < 18) return life to "Only adults (18+) can take a loan."
+        if (amount <= 0) return life to "Choose a valid loan amount."
+        val maxDebt = 150_000
+        if (life.loanDebt + amount > maxDebt) {
+            return life to "Credit limit reached (max $$maxDebt total loan)."
+        }
+
+        val entry = JournalEntry(
+            id = "e_loan_${life.currentAge}_${Random.nextInt(999)}",
+            age = life.currentAge,
+            year = life.currentYear,
+            category = EntryCategory.CAREER,
+            title = "Approved $$amount Adult Loan",
+            detail = "Added $$amount cash on hand (4% annual interest; total debt $${life.loanDebt + amount})."
+        )
+        return life.copy(
+            netWorth = life.netWorth + amount,
+            loanDebt = life.loanDebt + amount,
+            entries = (listOf(entry) + life.entries).take(120)
+        ) to "Approved $$amount loan! Cash increased."
+    }
+
+    fun repayLoan(life: LifeState, amount: Int): Pair<LifeState, String> {
+        if (!life.isAlive) return life to "This chapter has closed."
+        if (life.loanDebt <= 0) return life to "You have no outstanding loan balance."
+        if (life.netWorth <= 0) return life to "No cash on hand to repay right now."
+        val payment = minOf(amount, life.loanDebt, life.netWorth)
+        if (payment <= 0) return life to "Nothing to repay."
+
+        val remaining = life.loanDebt - payment
+        val entry = JournalEntry(
+            id = "e_repay_${life.currentAge}_${Random.nextInt(999)}",
+            age = life.currentAge,
+            year = life.currentYear,
+            category = EntryCategory.CAREER,
+            title = "Repaid $$payment Loan",
+            detail = if (remaining == 0) "Paid off your loan completely!" else "Remaining loan balance: $$remaining."
+        )
+        return life.copy(
+            netWorth = (life.netWorth - payment).coerceAtLeast(0),
+            loanDebt = remaining,
+            stats = life.stats.copy(stress = life.stats.stress - 4).clamped(),
+            entries = (listOf(entry) + life.entries).take(120)
+        ) to if (remaining == 0) "Loan paid in full!" else "Paid $$payment toward loan ($$remaining left)."
+    }
+
+    private fun applyEducationSkillBoost(
+        skills: CharacterSkills,
+        stats: LifeStats,
+        edu: EducationType
+    ): Pair<CharacterSkills, LifeStats> = when (edu) {
+        EducationType.LAW_SCHOOL -> skills.copy(
+            deductionLaw = skills.deductionLaw + 12,
+            persuasionMedia = skills.persuasionMedia + 8,
+            engineeringTech = skills.engineeringTech + 2
+        ).clamped() to stats.copy(intellect = stats.intellect + 8).clamped()
+
+        EducationType.ART_UNI -> skills.copy(
+            paintingArt = skills.paintingArt + 11,
+            musicPerformance = skills.musicPerformance + 7,
+            actingStage = skills.actingStage + 11,
+            persuasionMedia = skills.persuasionMedia + 4
+        ).clamped() to stats.copy(creativity = stats.creativity + 7).clamped()
+
+        EducationType.MUSIC_ACADEMY -> skills.copy(
+            musicPerformance = skills.musicPerformance + 14,
+            actingStage = skills.actingStage + 6,
+            paintingArt = skills.paintingArt + 4
+        ).clamped() to stats.copy(creativity = stats.creativity + 7).clamped()
+
+        EducationType.UNIVERSITY -> skills.copy(
+            engineeringTech = skills.engineeringTech + 11,
+            deductionLaw = skills.deductionLaw + 6,
+            persuasionMedia = skills.persuasionMedia + 5
+        ).clamped() to stats.copy(intellect = stats.intellect + 8).clamped()
+
+        EducationType.TRADE_SCHOOL -> skills.copy(
+            athleticDriving = skills.athleticDriving + 11,
+            culinaryCraft = skills.culinaryCraft + 11,
+            engineeringTech = skills.engineeringTech + 5
+        ).clamped() to stats.copy(fitness = stats.fitness + 3).clamped()
+
+        EducationType.NONE -> skills to stats
     }
 
     fun boostFameAndCraft(life: LifeState): TurnResult {
@@ -1103,7 +1326,7 @@ object LifeEngine {
             )
             val updated = life.copy(
                 prisonYearsLeft = sentence,
-                netWorth = life.netWorth - fine,
+                netWorth = (life.netWorth - fine).coerceAtLeast(0),
                 notoriety = (life.notoriety + 14).coerceAtMost(100),
                 stats = life.stats.copy(
                     happiness = life.stats.happiness - 18,
@@ -1290,6 +1513,7 @@ object LifeEngine {
     }
 
     fun launchMerchLine(life: LifeState, merchName: String): TurnResult {
+        if (life.netWorth < 1500) return TurnResult(life, emptySet(), 0)
         val cleanName = merchName.trim().ifBlank { "Minimalist Linen Tote" }.take(40)
         val entry = JournalEntry(
             id = "e_merch_${life.currentAge}",
@@ -1300,7 +1524,7 @@ object LifeEngine {
             detail = "Launched a signature creator collection that earns recurring annual revenue."
         )
         val nextLife = life.copy(
-            netWorth = (life.netWorth - 1500).coerceAtLeast(-5000),
+            netWorth = (life.netWorth - 1500).coerceAtLeast(0),
             socialChannel = life.socialChannel.copy(
                 merchLaunched = true,
                 merchName = cleanName
@@ -1345,6 +1569,7 @@ object LifeEngine {
             "therapy" -> Tuple10("Therapy & Mindfulness", "Unpacked pressure calmly and practiced grounding habits.", 140, 2, 9, 0, 5, -14, -15, -2)
             else -> Tuple10("Quiet Nature Retreat", "Spent a slow weekend among pines without screens.", 450, 5, 12, 4, 18, -18, -16, -4)
         }
+        if (life.netWorth < cost) return TurnResult(life, emptySet(), 0)
         val entry = JournalEntry(
             id = "e_well_${life.currentAge}_${Random.nextInt(999)}",
             age = life.currentAge,
@@ -1354,7 +1579,7 @@ object LifeEngine {
             detail = detail
         )
         val nextLife = life.copy(
-            netWorth = life.netWorth - cost,
+            netWorth = (life.netWorth - cost).coerceAtLeast(0),
             stats = life.stats.copy(
                 health = life.stats.health + healthD,
                 happiness = life.stats.happiness + happyD,
@@ -1385,6 +1610,7 @@ object LifeEngine {
 
         when (action) {
             "gift" -> {
+                if (life.netWorth < 150) return TurnResult(life, emptySet(), 0)
                 cashDelta = -150
                 closenessDelta = 14
                 happyDelta = 8
@@ -1435,7 +1661,7 @@ object LifeEngine {
         )
 
         val nextLife = life.copy(
-            netWorth = life.netWorth + cashDelta,
+            netWorth = (life.netWorth + cashDelta).coerceAtLeast(0),
             stats = life.stats.copy(
                 happiness = life.stats.happiness + happyDelta,
                 stress = life.stats.stress + stressDelta,
@@ -1492,6 +1718,16 @@ object LifeEngine {
 
     fun ensureDailyMissions(life: LifeState, dateKey: String = currentDayKey()): LifeState {
         val ms = life.missionState
+        if (life.currentAge < 13) {
+            return if (ms.missions.isEmpty() && ms.dateKey == dateKey) life
+            else life.copy(
+                missionState = ms.copy(
+                    dateKey = dateKey,
+                    missions = emptyList(),
+                    dailyBonusClaimed = false
+                )
+            )
+        }
         if (ms.dateKey == dateKey && ms.missions.size == 3) {
             return life
         }
@@ -1531,6 +1767,7 @@ object LifeEngine {
         dateKey: String = currentDayKey()
     ): MissionOutcome {
         val ensured = ensureDailyMissions(life, dateKey)
+        if (ensured.currentAge < 13) return MissionOutcome(ensured, null, 0, 0, null)
         val ms = ensured.missionState
         val target = ms.missions.firstOrNull { it.type == type && !it.isCompleted }
             ?: return MissionOutcome(ensured, null, 0, 0, null)
@@ -1561,6 +1798,7 @@ object LifeEngine {
         dateKey: String = currentDayKey()
     ): MissionOutcome {
         val ensured = ensureDailyMissions(life, dateKey)
+        if (ensured.currentAge < 13) return MissionOutcome(ensured, null, 0, 0, null)
         val ms = ensured.missionState
         val target = ms.missions.firstOrNull { it.id == missionId && !it.isCompleted }
             ?: return MissionOutcome(ensured, null, 0, 0, null)
@@ -1702,6 +1940,7 @@ object LifeEngine {
         dateKey: String = currentDayKey()
     ): MissionOutcome {
         val ensured = ensureDailyMissions(life, dateKey)
+        if (ensured.currentAge < 13) return MissionOutcome(ensured, null, 0, 0, null)
         val ms = ensured.missionState
         if (!ms.allCompleted || ms.dailyBonusClaimed) {
             return MissionOutcome(ensured, null, 0, 0, null)

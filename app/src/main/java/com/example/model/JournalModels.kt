@@ -27,12 +27,86 @@ enum class TemperamentTrait(val label: String, val summary: String) {
     AMBITIOUS("Ambitious", "+Faster promotions & higher creator payouts")
 }
 
+enum class SkillType(val label: String, val tagline: String) {
+    DEDUCTION_LAW("Deduction & Law", "Case logic, statutes & investigation"),
+    ENGINEERING_TECH("Engineering & Logic", "Systems, math & technical design"),
+    PAINTING_ART("Painting & Visual Art", "Fine art, drawing & composition"),
+    MUSIC_PERFORMANCE("Music, Guitar & Vocals", "Singing, guitar, drums & theory"),
+    ACTING_STAGE("Acting & Stagecraft", "Screen presence, voice & theatre"),
+    ATHLETIC_DRIVING("Athletics & Racecraft", "Reflexes, endurance & track skill"),
+    CULINARY_CRAFT("Culinary & Craft", "Kitchen technique, palate & plating"),
+    PERSUASION_MEDIA("Persuasion & Rhetoric", "Debate, interviews & media poise")
+}
+
+data class CharacterSkills(
+    val deductionLaw: Int = 18,
+    val engineeringTech: Int = 18,
+    val paintingArt: Int = 18,
+    val musicPerformance: Int = 18,
+    val actingStage: Int = 18,
+    val athleticDriving: Int = 18,
+    val culinaryCraft: Int = 18,
+    val persuasionMedia: Int = 18
+) {
+    fun levelOf(type: SkillType): Int = when (type) {
+        SkillType.DEDUCTION_LAW -> deductionLaw
+        SkillType.ENGINEERING_TECH -> engineeringTech
+        SkillType.PAINTING_ART -> paintingArt
+        SkillType.MUSIC_PERFORMANCE -> musicPerformance
+        SkillType.ACTING_STAGE -> actingStage
+        SkillType.ATHLETIC_DRIVING -> athleticDriving
+        SkillType.CULINARY_CRAFT -> culinaryCraft
+        SkillType.PERSUASION_MEDIA -> persuasionMedia
+    }
+
+    fun withBoost(type: SkillType, delta: Int): CharacterSkills = when (type) {
+        SkillType.DEDUCTION_LAW -> copy(deductionLaw = deductionLaw + delta)
+        SkillType.ENGINEERING_TECH -> copy(engineeringTech = engineeringTech + delta)
+        SkillType.PAINTING_ART -> copy(paintingArt = paintingArt + delta)
+        SkillType.MUSIC_PERFORMANCE -> copy(musicPerformance = musicPerformance + delta)
+        SkillType.ACTING_STAGE -> copy(actingStage = actingStage + delta)
+        SkillType.ATHLETIC_DRIVING -> copy(athleticDriving = athleticDriving + delta)
+        SkillType.CULINARY_CRAFT -> copy(culinaryCraft = culinaryCraft + delta)
+        SkillType.PERSUASION_MEDIA -> copy(persuasionMedia = persuasionMedia + delta)
+    }.clamped()
+
+    fun clamped(): CharacterSkills = copy(
+        deductionLaw = deductionLaw.coerceIn(0, 100),
+        engineeringTech = engineeringTech.coerceIn(0, 100),
+        paintingArt = paintingArt.coerceIn(0, 100),
+        musicPerformance = musicPerformance.coerceIn(0, 100),
+        actingStage = actingStage.coerceIn(0, 100),
+        athleticDriving = athleticDriving.coerceIn(0, 100),
+        culinaryCraft = culinaryCraft.coerceIn(0, 100),
+        persuasionMedia = persuasionMedia.coerceIn(0, 100)
+    )
+}
+
+enum class SkillActivity(
+    val title: String,
+    val skill: SkillType,
+    val skillGain: Int,
+    val cashCost: Int,
+    val energyCost: Int,
+    val summary: String
+) {
+    MOCK_TRIAL("Mock Trial & Logic Cases", SkillType.DEDUCTION_LAW, 9, 0, 8, "+9 Deduction & Law, +3 Intellect"),
+    PAINT_STUDIO("Life Drawing & Canvas Studio", SkillType.PAINTING_ART, 9, 50, 8, "+9 Painting & Art, +3 Creativity"),
+    BAND_REHEARSAL("Guitar, Drums & Vocal Jam", SkillType.MUSIC_PERFORMANCE, 9, 40, 8, "+9 Music & Vocals, +3 Creativity"),
+    THEATRE_WORKSHOP("Acting & Stage Improv", SkillType.ACTING_STAGE, 9, 50, 8, "+9 Acting & Stage, +2 Persuasion"),
+    SYSTEMS_LAB("Systems & Coding Workshop", SkillType.ENGINEERING_TECH, 9, 0, 8, "+9 Engineering & Logic, +3 Intellect"),
+    TRACK_DRILLS("Track Karting & Reflex Drills", SkillType.ATHLETIC_DRIVING, 9, 80, 9, "+9 Athletics & Racecraft, +3 Fitness"),
+    TEST_KITCHEN("Test Kitchen & Knife Prep", SkillType.CULINARY_CRAFT, 9, 45, 8, "+9 Culinary & Craft, +2 Creativity"),
+    DEBATE_CLUB("Public Debate & Media Pitch", SkillType.PERSUASION_MEDIA, 9, 0, 7, "+9 Persuasion & Rhetoric, +2 Intellect")
+}
+
 enum class EducationType(val label: String, val annualCost: Int, val description: String) {
     NONE("No Degree", 0, "Open self-taught path"),
-    UNIVERSITY("University", 4000, "Unlocks Software, Medicine & Design"),
-    ART_UNI("Art & Design Conservatory", 3600, "Unlocks Fine Artist, Modeling & Acting"),
-    MUSIC_ACADEMY("Music Conservatory", 3600, "Unlocks Solo Singer, Band Guitarist & Drummer"),
-    TRADE_SCHOOL("Craft & Motorsport Institute", 2600, "Unlocks Race Driver & Culinary Mastery")
+    UNIVERSITY("University", 4000, "Boosts Engineering, Logic & Intellect"),
+    LAW_SCHOOL("Law School", 4500, "Auto-boosts Deduction, Intellect & Law"),
+    ART_UNI("Art & Design Conservatory", 3600, "Auto-boosts Painting, Music, Acting & Creativity"),
+    MUSIC_ACADEMY("Music Conservatory", 3600, "Auto-boosts Music, Guitar, Drums & Stagecraft"),
+    TRADE_SCHOOL("Craft & Motorsport Institute", 2600, "Auto-boosts Racecraft & Culinary Mastery")
 }
 
 enum class DietPlan(
@@ -119,15 +193,37 @@ enum class CareerTrack(
     val requiresDegree: Boolean,
     val isFameTrack: Boolean = false,
     val preferredEducation: EducationType = EducationType.NONE,
+    val primarySkill: SkillType = SkillType.PERSUASION_MEDIA,
+    val secondarySkill: SkillType = SkillType.ENGINEERING_TECH,
+    val minPrimarySkill: Int = 20,
     val rungs: List<Pair<String, Int>>
 ) {
-    UNEMPLOYED("Independent", "Open Chapter", false, false, EducationType.NONE, listOf("Exploring" to 0)),
+    UNEMPLOYED("Independent", "Open Chapter", false, false, EducationType.NONE, SkillType.PERSUASION_MEDIA, SkillType.ENGINEERING_TECH, 0, listOf("Exploring" to 0)),
+    LAW(
+        "Law & Advocacy",
+        "Legal & Courts",
+        true,
+        false,
+        EducationType.LAW_SCHOOL,
+        SkillType.DEDUCTION_LAW,
+        SkillType.PERSUASION_MEDIA,
+        40,
+        listOf(
+            "Legal Paralegal" to 46000,
+            "Associate Attorney" to 92000,
+            "Trial Lawyer" to 168000,
+            "Supreme Court Justice" to 285000
+        )
+    ),
     SOFTWARE(
         "Software & Systems",
         "Technology",
         true,
         false,
         EducationType.UNIVERSITY,
+        SkillType.ENGINEERING_TECH,
+        SkillType.DEDUCTION_LAW,
+        35,
         listOf(
             "Junior Engineer" to 64000,
             "Product Engineer" to 96000,
@@ -141,6 +237,9 @@ enum class CareerTrack(
         false,
         false,
         EducationType.UNIVERSITY,
+        SkillType.PERSUASION_MEDIA,
+        SkillType.DEDUCTION_LAW,
+        24,
         listOf(
             "Editorial Assistant" to 44000,
             "Staff Columnist" to 68000,
@@ -154,6 +253,9 @@ enum class CareerTrack(
         true,
         false,
         EducationType.UNIVERSITY,
+        SkillType.DEDUCTION_LAW,
+        SkillType.ENGINEERING_TECH,
+        42,
         listOf(
             "Clinical Intern" to 58000,
             "Resident Physician" to 82000,
@@ -167,6 +269,9 @@ enum class CareerTrack(
         false,
         false,
         EducationType.TRADE_SCHOOL,
+        SkillType.CULINARY_CRAFT,
+        SkillType.PERSUASION_MEDIA,
+        24,
         listOf(
             "Line Cook" to 38000,
             "Sous Chef" to 58000,
@@ -180,6 +285,9 @@ enum class CareerTrack(
         true,
         false,
         EducationType.ART_UNI,
+        SkillType.PAINTING_ART,
+        SkillType.ENGINEERING_TECH,
+        34,
         listOf(
             "Junior Designer" to 54000,
             "Product Designer" to 86000,
@@ -193,6 +301,9 @@ enum class CareerTrack(
         false,
         true,
         EducationType.ART_UNI,
+        SkillType.PAINTING_ART,
+        SkillType.PERSUASION_MEDIA,
+        32,
         listOf(
             "Street Portrait Painter" to 28000,
             "Gallery Exhibitor" to 64000,
@@ -206,6 +317,9 @@ enum class CareerTrack(
         false,
         true,
         EducationType.ART_UNI,
+        SkillType.ACTING_STAGE,
+        SkillType.PERSUASION_MEDIA,
+        32,
         listOf(
             "Theatre Understudy" to 32000,
             "Indie Film Lead" to 78000,
@@ -219,6 +333,9 @@ enum class CareerTrack(
         false,
         true,
         EducationType.ART_UNI,
+        SkillType.ACTING_STAGE,
+        SkillType.PAINTING_ART,
+        28,
         listOf(
             "Lookbook Model" to 34000,
             "Runway Walk" to 72000,
@@ -232,6 +349,9 @@ enum class CareerTrack(
         false,
         true,
         EducationType.MUSIC_ACADEMY,
+        SkillType.MUSIC_PERFORMANCE,
+        SkillType.ACTING_STAGE,
+        30,
         listOf(
             "Acoustic Cafe Singer" to 26000,
             "Indie Recording Vocalist" to 68000,
@@ -245,6 +365,9 @@ enum class CareerTrack(
         false,
         true,
         EducationType.MUSIC_ACADEMY,
+        SkillType.MUSIC_PERFORMANCE,
+        SkillType.PERSUASION_MEDIA,
+        30,
         listOf(
             "Garage Band Guitarist" to 24000,
             "Touring Rhythm Guitarist" to 62000,
@@ -258,6 +381,9 @@ enum class CareerTrack(
         false,
         true,
         EducationType.MUSIC_ACADEMY,
+        SkillType.MUSIC_PERFORMANCE,
+        SkillType.ATHLETIC_DRIVING,
+        30,
         listOf(
             "Session Club Drummer" to 25000,
             "Festival Tour Drummer" to 64000,
@@ -271,6 +397,9 @@ enum class CareerTrack(
         false,
         true,
         EducationType.TRADE_SCHOOL,
+        SkillType.ATHLETIC_DRIVING,
+        SkillType.ENGINEERING_TECH,
+        34,
         listOf(
             "Karting Prospect" to 30000,
             "Formula Regional Driver" to 88000,
@@ -284,6 +413,9 @@ enum class CareerTrack(
         false,
         true,
         EducationType.NONE,
+        SkillType.PERSUASION_MEDIA,
+        SkillType.ACTING_STAGE,
+        18,
         listOf(
             "Hobbyist Streamer" to 18000,
             "Rising Creator" to 52000,
@@ -560,10 +692,12 @@ data class LifeState(
     val trait: TemperamentTrait = TemperamentTrait.CURIOUS,
     val appearance: AvatarAppearance = AvatarAppearance(),
     val stats: LifeStats = LifeStats(),
+    val skills: CharacterSkills = CharacterSkills(),
     val diet: DietPlan = DietPlan.WHOLE_FOOD,
     val exercise: ExerciseRoutine = ExerciseRoutine.QUIET_WALKS,
     val sleep: SleepSchedule = SleepSchedule.RESTORATIVE,
     val netWorth: Int = 500,
+    val loanDebt: Int = 0,
     val hasDegree: Boolean = false,
     val inSchool: Boolean = false,
     val educationType: EducationType = EducationType.NONE,
@@ -616,7 +750,8 @@ data class LifeState(
 
     val legacyScore: Int
         get() {
-            val wealthScore = (netWorth.coerceAtLeast(0) / 1000).coerceAtMost(800)
+            val equity = (netWorth - loanDebt).coerceAtLeast(0)
+            val wealthScore = (equity / 1000).coerceAtMost(800)
             val socialScore = (socialChannel.followers / 500).coerceAtMost(800)
             val fameScore = peakFame * 4
             val bondScore = relationships.filter { it.isAlive }.sumOf { it.closeness } / 2
@@ -712,6 +847,15 @@ fun LifeState.toFirestorePayload(uid: String): Map<String, Any> = mapOf(
         "stress" to stats.stress.toLong(),
         "anxiety" to stats.anxiety.toLong(),
         "karma" to stats.karma.toLong(),
+        "loanDebt" to loanDebt.toLong(),
+        "skillDeductionLaw" to skills.deductionLaw.toLong(),
+        "skillEngineeringTech" to skills.engineeringTech.toLong(),
+        "skillPaintingArt" to skills.paintingArt.toLong(),
+        "skillMusicPerformance" to skills.musicPerformance.toLong(),
+        "skillActingStage" to skills.actingStage.toLong(),
+        "skillAthleticDriving" to skills.athleticDriving.toLong(),
+        "skillCulinaryCraft" to skills.culinaryCraft.toLong(),
+        "skillPersuasionMedia" to skills.persuasionMedia.toLong(),
         "diet" to diet.name,
         "exercise" to exercise.name,
         "sleep" to sleep.name,
@@ -902,7 +1046,18 @@ fun LifeSaveDoc.toDomain(): LifeState {
         diet = parsedDiet,
         exercise = parsedEx,
         sleep = parsedSleep,
-        netWorth = netWorth.toInt(),
+        skills = CharacterSkills(
+            deductionLaw = statsMap.intVal("skillDeductionLaw", 18),
+            engineeringTech = statsMap.intVal("skillEngineeringTech", 18),
+            paintingArt = statsMap.intVal("skillPaintingArt", 18),
+            musicPerformance = statsMap.intVal("skillMusicPerformance", 18),
+            actingStage = statsMap.intVal("skillActingStage", 18),
+            athleticDriving = statsMap.intVal("skillAthleticDriving", 18),
+            culinaryCraft = statsMap.intVal("skillCulinaryCraft", 18),
+            persuasionMedia = statsMap.intVal("skillPersuasionMedia", 18)
+        ),
+        netWorth = netWorth.toInt().coerceAtLeast(0),
+        loanDebt = statsMap.intVal("loanDebt", 0).coerceAtLeast(0),
         hasDegree = statsMap.boolVal("hasDegree", false),
         inSchool = statsMap.boolVal("inSchool", false),
         educationType = parsedEdu,
