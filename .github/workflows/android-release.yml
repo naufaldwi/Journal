@@ -38,8 +38,13 @@ jobs:
         with:
           gradle-version: "9.3.1"
 
-      - name: Run unit tests
-        run: gradle :app:testDebugUnitTest --no-daemon
+      - name: Run unit & UI tests
+        run: >
+          gradle :app:testDebugUnitTest --no-daemon
+          --tests "com.example.engine.LifeEngineTest"
+          --tests "com.example.ExampleRobolectricTest"
+          --tests "com.example.ExampleUnitTest"
+          --tests "com.example.ui.*"
 
       - name: Build installable debug APK
         run: gradle :app:assembleDebug --no-daemon

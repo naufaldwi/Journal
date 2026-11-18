@@ -13,8 +13,10 @@ data class CrimeSyndicateProfile(
 
 data class CountryProfile(
     val countryName: String,
+    val region: String,
     val cities: List<String>,
-    val firstNames: List<String>,
+    val maleFirstNames: List<String>,
+    val femaleFirstNames: List<String>,
     val lastNames: List<String>,
     val crimeSyndicate: CrimeSyndicateProfile,
     val localIssues: List<LocalIssueEvent>
@@ -32,6 +34,7 @@ object CountryCatalog {
     val countries: List<CountryProfile> = listOf(
         CountryProfile(
             countryName = "Indonesia",
+            region = "Southeast Asia",
             cities = listOf(
                 "Jakarta, Indonesia",
                 "Yogyakarta, Indonesia",
@@ -41,11 +44,8 @@ object CountryCatalog {
                 "Medan, Indonesia",
                 "Makassar, Indonesia"
             ),
-            firstNames = listOf(
-                "Aditya", "Sekar", "Bagas", "Nadia", "Raka", "Larasati",
-                "Dimas", "Kartika", "Budi", "Ayu", "Fajar", "Putri",
-                "Bayu", "Citra", "Ilham", "Dewi"
-            ),
+            maleFirstNames = listOf("Aditya", "Bagas", "Raka", "Dimas", "Budi", "Fajar", "Bayu", "Ilham"),
+            femaleFirstNames = listOf("Sekar", "Nadia", "Larasati", "Kartika", "Ayu", "Putri", "Citra", "Dewi"),
             lastNames = listOf(
                 "Pratama", "Kusuma", "Wijaya", "Santoso", "Lestari", "Nugroho",
                 "Rahayu", "Saputra", "Hidayat", "Mahendra", "Puspita", "Siregar",
@@ -175,8 +175,10 @@ object CountryCatalog {
         ),
         CountryProfile(
             countryName = "Japan",
+            region = "East Asia",
             cities = listOf("Kyoto, Japan", "Tokyo, Japan", "Osaka, Japan", "Sapporo, Japan"),
-            firstNames = listOf("Ren", "Hina", "Haruto", "Mei", "Sora", "Yui", "Kenji", "Aoi"),
+            maleFirstNames = listOf("Ren", "Haruto", "Kenji", "Kaito", "Takumi", "Yuto", "Daiki", "Sho"),
+            femaleFirstNames = listOf("Hina", "Mei", "Yui", "Aoi", "Sakura", "Rin", "Haruka", "Nanami"),
             lastNames = listOf("Tanaka", "Sato", "Takahashi", "Watanabe", "Kobayashi", "Nakamura"),
             crimeSyndicate = CrimeSyndicateProfile(
                 organizationName = "Kansai Yakuza Gumi",
@@ -219,8 +221,10 @@ object CountryCatalog {
         ),
         CountryProfile(
             countryName = "Hong Kong",
+            region = "East Asia",
             cities = listOf("Kowloon, Hong Kong", "Central, Hong Kong", "Sha Tin, Hong Kong"),
-            firstNames = listOf("Anson", "Chloe", "Marcus", "Siu-Ming", "Wing-Yan", "Kelvin", "Tsz-Hin"),
+            maleFirstNames = listOf("Anson", "Marcus", "Siu-Ming", "Kelvin", "Tsz-Hin", "Bosco", "Lok-Yin"),
+            femaleFirstNames = listOf("Chloe", "Wing-Yan", "Ka-Yan", "Hoi-Lam", "Tsz-Ching", "Yan-Tung"),
             lastNames = listOf("Chan", "Wong", "Cheung", "Lau", "Leung", "Ng", "Tam"),
             crimeSyndicate = CrimeSyndicateProfile(
                 organizationName = "Kowloon Triad Society",
@@ -263,8 +267,10 @@ object CountryCatalog {
         ),
         CountryProfile(
             countryName = "Italy",
+            region = "Europe",
             cities = listOf("Milan, Italy", "Naples, Italy", "Rome, Italy", "Bologna, Italy"),
-            firstNames = listOf("Lorenzo", "Giulia", "Matteo", "Chiara", "Marco", "Sofia", "Luca"),
+            maleFirstNames = listOf("Lorenzo", "Matteo", "Marco", "Luca", "Alessandro", "Federico", "Davide"),
+            femaleFirstNames = listOf("Giulia", "Chiara", "Sofia", "Francesca", "Elena", "Martina", "Alessia"),
             lastNames = listOf("Rossi", "Esposito", "Russo", "Conti", "Moretti", "Ricci"),
             crimeSyndicate = CrimeSyndicateProfile(
                 organizationName = "La Famiglia Syndicate",
@@ -307,8 +313,10 @@ object CountryCatalog {
         ),
         CountryProfile(
             countryName = "United States",
+            region = "North America",
             cities = listOf("Portland, USA", "Seattle, USA", "Austin, USA", "Brooklyn, USA", "Los Angeles, USA"),
-            firstNames = listOf("Clara", "Julian", "Rowan", "Maya", "Theo", "Nora", "Owen", "Elena"),
+            maleFirstNames = listOf("Julian", "Theo", "Owen", "Ethan", "Caleb", "Lucas", "Nathan"),
+            femaleFirstNames = listOf("Clara", "Maya", "Nora", "Elena", "Hannah", "Claire", "Grace"),
             lastNames = listOf("Vance", "Mercer", "Bennett", "Morales", "Kerr", "Hayes"),
             crimeSyndicate = CrimeSyndicateProfile(
                 organizationName = "Metro Street Syndicate",
@@ -351,8 +359,10 @@ object CountryCatalog {
         ),
         CountryProfile(
             countryName = "United Kingdom",
+            region = "Europe",
             cities = listOf("London, UK", "Manchester, UK", "Edinburgh, UK"),
-            firstNames = listOf("Arthur", "Freya", "Callum", "Imogen", "Jude", "Poppy", "Miles"),
+            maleFirstNames = listOf("Arthur", "Callum", "Jude", "Miles", "Oliver", "Henry", "George"),
+            femaleFirstNames = listOf("Freya", "Imogen", "Poppy", "Charlotte", "Amelia", "Rosie", "Alice"),
             lastNames = listOf("Whitaker", "Benson", "Fletcher", "Gallagher", "Fraser", "Sterling"),
             crimeSyndicate = CrimeSyndicateProfile(
                 organizationName = "The East End Firm",
@@ -395,8 +405,10 @@ object CountryCatalog {
         ),
         CountryProfile(
             countryName = "South Korea",
+            region = "East Asia",
             cities = listOf("Seoul, South Korea", "Busan, South Korea", "Jeju, South Korea"),
-            firstNames = listOf("Minjun", "Seo-yeon", "Jiwon", "Ha-eun", "Doyun", "Yuna"),
+            maleFirstNames = listOf("Minjun", "Doyun", "Hyunwoo", "Jihoon", "Seojun", "Taemin"),
+            femaleFirstNames = listOf("Seo-yeon", "Ha-eun", "Yuna", "Ji-eun", "Soo-jin", "Min-ji"),
             lastNames = listOf("Park", "Kim", "Lee", "Choi", "Jung", "Kang"),
             crimeSyndicate = CrimeSyndicateProfile(
                 organizationName = "Busan Port Jopok",
@@ -439,8 +451,10 @@ object CountryCatalog {
         ),
         CountryProfile(
             countryName = "Portugal",
+            region = "Europe",
             cities = listOf("Lisbon, Portugal", "Porto, Portugal", "Coimbra, Portugal"),
-            firstNames = listOf("Tiago", "Ines", "Mateo", "Sofia", "Duarte", "Beatriz"),
+            maleFirstNames = listOf("Tiago", "Duarte", "Diogo", "Joao", "Rafael", "Tomas"),
+            femaleFirstNames = listOf("Ines", "Sofia", "Beatriz", "Mariana", "Leonor", "Carolina"),
             lastNames = listOf("Almeida", "Ferreira", "Silva", "Costa", "Sousa", "Oliveira"),
             crimeSyndicate = CrimeSyndicateProfile(
                 organizationName = "Atlantic Dock Smugglers",
@@ -482,8 +496,10 @@ object CountryCatalog {
         ),
         CountryProfile(
             countryName = "Denmark",
+            region = "Europe",
             cities = listOf("Copenhagen, Denmark", "Aarhus, Denmark"),
-            firstNames = listOf("Freja", "Sander", "Astrid", "Mikkel", "Clara", "Emil"),
+            maleFirstNames = listOf("Sander", "Mikkel", "Emil", "Lukas", "Kasper", "Oliver"),
+            femaleFirstNames = listOf("Freja", "Astrid", "Clara", "Ida", "Emma", "Maja"),
             lastNames = listOf("Lindqvist", "Jensen", "Nielsen", "Madsen", "Krog"),
             crimeSyndicate = CrimeSyndicateProfile(
                 organizationName = "Harbour Crew Syndicate",
@@ -525,8 +541,10 @@ object CountryCatalog {
         ),
         CountryProfile(
             countryName = "India",
+            region = "South Asia",
             cities = listOf("Bengaluru, India", "Mumbai, India", "Jaipur, India", "Kochi, India"),
-            firstNames = listOf("Aarav", "Ananya", "Vikram", "Diya", "Rohan", "Meera", "Kabir", "Ishani"),
+            maleFirstNames = listOf("Aarav", "Vikram", "Rohan", "Kabir", "Arjun", "Vivaan", "Aditya"),
+            femaleFirstNames = listOf("Ananya", "Diya", "Meera", "Ishani", "Kavya", "Priya", "Tanya"),
             lastNames = listOf("Sharma", "Nair", "Patel", "Iyer", "Kapoor", "Menon", "Desai"),
             crimeSyndicate = CrimeSyndicateProfile(
                 organizationName = "Mumbai Dock Underworld",
@@ -569,8 +587,10 @@ object CountryCatalog {
         ),
         CountryProfile(
             countryName = "Brazil",
+            region = "South America",
             cities = listOf("São Paulo, Brazil", "Florianópolis, Brazil", "Curitiba, Brazil"),
-            firstNames = listOf("Lucas", "Beatriz", "Gabriel", "Camila", "Rafael", "Larissa"),
+            maleFirstNames = listOf("Lucas", "Gabriel", "Rafael", "Matheus", "Pedro", "Thiago"),
+            femaleFirstNames = listOf("Beatriz", "Camila", "Larissa", "Julia", "Mariana", "Amanda"),
             lastNames = listOf("Silva", "Santos", "Oliveira", "Souza", "Pereira", "Costa"),
             crimeSyndicate = CrimeSyndicateProfile(
                 organizationName = "Comando do Porto",
@@ -613,8 +633,10 @@ object CountryCatalog {
         ),
         CountryProfile(
             countryName = "Australia",
+            region = "Oceania",
             cities = listOf("Melbourne, Australia", "Sydney, Australia", "Brisbane, Australia"),
-            firstNames = listOf("Liam", "Chloe", "Noah", "Isla", "Oliver", "Ruby"),
+            maleFirstNames = listOf("Liam", "Noah", "Oliver", "Jack", "Lachlan", "Ethan"),
+            femaleFirstNames = listOf("Chloe", "Isla", "Ruby", "Matilda", "Sienna", "Zoe"),
             lastNames = listOf("Campbell", "Taylor", "Reid", "Wilson", "Fraser", "Clarke"),
             crimeSyndicate = CrimeSyndicateProfile(
                 organizationName = "Bikie Docks Crew",
@@ -657,8 +679,10 @@ object CountryCatalog {
         ),
         CountryProfile(
             countryName = "Canada",
+            region = "North America",
             cities = listOf("Montreal, Canada", "Vancouver, Canada", "Toronto, Canada"),
-            firstNames = listOf("Camille", "Hugo", "Avery", "Liam", "Zoe", "Etienne"),
+            maleFirstNames = listOf("Hugo", "Liam", "Etienne", "Noah", "Gabriel", "Thomas"),
+            femaleFirstNames = listOf("Camille", "Chloe", "Zoe", "Claire", "Sophie", "Charlotte"),
             lastNames = listOf("Duval", "Tremblay", "Roy", "MacLeod", "Bouchard", "Chen"),
             crimeSyndicate = CrimeSyndicateProfile(
                 organizationName = "St. Lawrence Dock Ring",
@@ -701,8 +725,10 @@ object CountryCatalog {
         ),
         CountryProfile(
             countryName = "Nigeria",
+            region = "West Africa",
             cities = listOf("Lagos, Nigeria", "Abuja, Nigeria", "Ibadan, Nigeria"),
-            firstNames = listOf("Tunde", "Amara", "Chidi", "Zainab", "Kemi", "Emeka"),
+            maleFirstNames = listOf("Tunde", "Chidi", "Emeka", "Kola", "Segun", "Damilola"),
+            femaleFirstNames = listOf("Amara", "Zainab", "Kemi", "Ngozi", "Funke", "Ada"),
             lastNames = listOf("Okafor", "Adeyemi", "Bello", "Balogun", "Eze", "Olawale"),
             crimeSyndicate = CrimeSyndicateProfile(
                 organizationName = "Apapa Wharf Syndicate",
@@ -758,13 +784,27 @@ object CountryCatalog {
         return findCountryForBirthplace(birthplace).crimeSyndicate
     }
 
-    fun randomNameForBirthplace(birthplace: String): Pair<String, String> {
-        val country = findCountryForBirthplace(birthplace)
-        return country.firstNames.random() to country.lastNames.random()
+    fun regionForBirthplace(birthplace: String): String {
+        return findCountryForBirthplace(birthplace).region
     }
 
-    fun randomCompanionFirstName(birthplace: String): String {
-        return findCountryForBirthplace(birthplace).firstNames.random()
+    fun randomNameForBirthplace(birthplace: String, isMale: Boolean? = null): Pair<String, String> {
+        val country = findCountryForBirthplace(birthplace)
+        val firstName = when (isMale) {
+            true -> country.maleFirstNames.random()
+            false -> country.femaleFirstNames.random()
+            null -> (country.maleFirstNames + country.femaleFirstNames).random()
+        }
+        return firstName to country.lastNames.random()
+    }
+
+    fun randomCompanionFirstName(birthplace: String, isMale: Boolean? = null): String {
+        val country = findCountryForBirthplace(birthplace)
+        return when (isMale) {
+            true -> country.maleFirstNames.random()
+            false -> country.femaleFirstNames.random()
+            null -> (country.maleFirstNames + country.femaleFirstNames).random()
+        }
     }
 
     fun randomCompanionLastName(birthplace: String): String {

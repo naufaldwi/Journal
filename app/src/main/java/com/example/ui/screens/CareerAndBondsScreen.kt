@@ -18,6 +18,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -26,9 +27,11 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -37,10 +40,17 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.example.engine.CountryCatalog
+import com.example.model.BondCategory
 import com.example.model.CareerTrack
 import com.example.model.EducationType
 import com.example.model.LifeState
 import com.example.model.Relationship
+import com.example.model.RelationshipPriority
+import com.example.model.RomanceMethod
+import com.example.model.RomanceOrientation
+import com.example.ui.components.OfficeProfessionalDynamicCard
+import com.example.ui.components.OrientationChoiceDialog
+import com.example.ui.components.SeekRomanceSheet
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -51,7 +61,9 @@ fun EducationCareersSubView(
     onEnrollEducation: (EducationType) -> Unit,
     onApplyCareer: (CareerTrack) -> Unit,
     onWorkExtraHours: () -> Unit,
-    onBoostFame: () -> Unit
+    onBoostFame: () -> Unit,
+    onInteractRelationship: (String, String) -> Unit,
+    onMeetProfessionalContact: () -> Unit
 ) {
     var section by remember { mutableIntStateOf(0) }
     val moneyFmt = remember { NumberFormat.getCurrencyInstance(Locale.US).apply { maximumFractionDigits = 0 } }
@@ -130,6 +142,16 @@ fun EducationCareersSubView(
                                 }
                             }
                         }
+                    }
+                }
+
+                if (life.currentAge >= 6) {
+                    item {
+                        OfficeProfessionalDynamicCard(
+                            life = life,
+                            onInteractRelationship = onInteractRelationship,
+                            onMeetProfessionalContact = onMeetProfessionalContact
+                        )
                     }
                 }
 
@@ -393,12 +415,22 @@ fun UnderworldSubView(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun BondsSubView(
     life: LifeState,
     onInteractRelationship: (String, String) -> Unit,
-    onMeetNewPerson: (Boolean) -> Unit
+    onMeetNewPerson: (BondCategory?) -> Unit,
+    onSetOrientation: (RomanceOrientation) -> Unit,
+    onSeekRomance: (RomanceMethod, String?) -> Unit,
+    onBreakUpPartner: (String) -> Unit,
+    onHaveOrAdoptChild: (String?) -> Unit,
+    onTriggerRandomEncounter: () -> Unit,
+    onOpenRelationshipSettings: () -> Unit = {}
 ) {
+    var showOrientationPrompt by remember { mutableStateOf(false) }
+    var showSeekRomanceSheet by remember { mutableStateOf(false) }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -406,30 +438,110 @@ fun BondsSubView(
         contentPadding = PaddingValues(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        if (life.isAlive && life.currentAge >= 12) {
+        if (life.isMiserableFromHatred) {
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    OutlinedButton(
-                        onClick = { onMeetNewPerson(false) },
-                        modifier = Modifier
-                            .weight(1f)
-                            .defaultMinSize(minHeight = 48.dp),
-                        shape = RoundedCornerShape(14.dp)
+                    Text(
+                        text = "Misery Warning: ${life.hateCount} people despise you (< 25% bond). Make amends to stop annual Happiness & Stress penalties.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(14.dp)
+                    )
+                }
+            }
+        }
+
+        if (life.isAlive && life.currentAge >= 6) {
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    shape = RoundedCornerShape(18.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("Meet Friend")
-                    }
-                    if (life.currentAge >= 18) {
-                        Button(
-                            onClick = { onMeetNewPerson(true) },
-                            modifier = Modifier
-                                .weight(1f)
-                                .defaultMinSize(minHeight = 48.dp),
-                            shape = RoundedCornerShape(14.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Seek Romance")
+                            Text("Social Circle & Romance", style = MaterialTheme.typography.titleMedium)
+                            val orientTag = if (life.orientation == RomanceOrientation.UNSET) {
+                                "Orientation Unset"
+                            } else {
+                                life.orientation.label
+                            }
+                            Text(
+                                text = "$orientTag · ${life.childrenCount} Child(ren)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { onMeetNewPerson(null) },
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .defaultMinSize(minHeight = 48.dp)
+                                    .testTag("meet_contact_button")
+                            ) {
+                                Text("Meet Contact")
+                            }
+                            OutlinedButton(
+                                onClick = onTriggerRandomEncounter,
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .defaultMinSize(minHeight = 48.dp)
+                                    .testTag("random_encounter_button")
+                            ) {
+                                Text("Random Encounter")
+                            }
+                            if (life.currentAge >= 14) {
+                                Button(
+                                    onClick = {
+                                        if (life.orientation == RomanceOrientation.UNSET) {
+                                            showOrientationPrompt = true
+                                        } else {
+                                            showSeekRomanceSheet = true
+                                        }
+                                    },
+                                    shape = RoundedCornerShape(14.dp),
+                                    modifier = Modifier
+                                        .defaultMinSize(minHeight = 48.dp)
+                                        .testTag("seek_romance_button")
+                                ) {
+                                    Text("Seek Romance")
+                                }
+                            }
+                            if (life.currentAge >= 18 && life.childrenCount < 6) {
+                                OutlinedButton(
+                                    onClick = { onHaveOrAdoptChild(null) },
+                                    shape = RoundedCornerShape(14.dp),
+                                    modifier = Modifier
+                                        .defaultMinSize(minHeight = 48.dp)
+                                        .testTag("adopt_have_child_button")
+                                ) {
+                                    Text("Welcome / Adopt Child")
+                                }
+                            }
+                            FilledTonalButton(
+                                onClick = onOpenRelationshipSettings,
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier
+                                    .defaultMinSize(minHeight = 48.dp)
+                                    .testTag("open_relationship_settings_button")
+                            ) {
+                                Text("Relationship Settings")
+                            }
                         }
                     }
                 }
@@ -441,9 +553,33 @@ fun BondsSubView(
                 rel = rel,
                 canInteract = life.isAlive,
                 canPropose = life.currentAge >= 20 && rel.isPartner && !rel.isSpouse,
-                onInteract = { action -> onInteractRelationship(rel.id, action) }
+                canHaveChild = life.isAlive && life.currentAge >= 18 && (rel.isSpouse || rel.isPartner) && rel.closeness >= 70 && life.childrenCount < 6,
+                onInteract = { action -> onInteractRelationship(rel.id, action) },
+                onBreakUp = { onBreakUpPartner(rel.id) },
+                onHaveChild = { onHaveOrAdoptChild(rel.id) }
             )
         }
+    }
+
+    if (showOrientationPrompt) {
+        OrientationChoiceDialog(
+            onSelect = { orientation ->
+                onSetOrientation(orientation)
+                showOrientationPrompt = false
+                showSeekRomanceSheet = true
+            },
+            onDismiss = { showOrientationPrompt = false }
+        )
+    }
+
+    if (showSeekRomanceSheet) {
+        SeekRomanceSheet(
+            life = life,
+            onSeekRomance = onSeekRomance,
+            onBreakUpPartner = onBreakUpPartner,
+            onMeetFriend = { onMeetNewPerson(BondCategory.FRIEND) },
+            onDismiss = { showSeekRomanceSheet = false }
+        )
     }
 }
 
@@ -453,8 +589,13 @@ private fun RelationshipCard(
     rel: Relationship,
     canInteract: Boolean,
     canPropose: Boolean,
-    onInteract: (String) -> Unit
+    canHaveChild: Boolean,
+    onInteract: (String) -> Unit,
+    onBreakUp: () -> Unit,
+    onHaveChild: () -> Unit
 ) {
+    val isHostile = rel.isAlive && rel.closeness < 25
+
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(18.dp),
@@ -469,21 +610,43 @@ private fun RelationshipCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(rel.name, style = MaterialTheme.typography.titleMedium)
                     Text(
-                        text = "${rel.role} · Age ${rel.age}",
+                        text = "${rel.role} · ${rel.category.label} · Age ${rel.age}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    if (rel.isAlive && rel.yearsNeglected > 0) {
+                        Text(
+                            text = "Neglected ${rel.yearsNeglected}y (drifts down annually)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    if (rel.isAlive && rel.priority != RelationshipPriority.STANDARD) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            shape = RoundedCornerShape(8.dp),
+                            modifier = Modifier.padding(top = 4.dp)
+                        ) {
+                            Text(
+                                text = "Priority: ${rel.priority.label}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
                 }
                 Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    color = if (isHostile) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Text(
-                        text = rel.statusLabel,
+                        text = "${rel.statusLabel} (${rel.closeness}%)",
                         style = MaterialTheme.typography.labelSmall,
+                        color = if (isHostile) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
@@ -491,6 +654,7 @@ private fun RelationshipCard(
 
             LinearProgressIndicator(
                 progress = { (rel.closeness / 100f).coerceIn(0f, 1f) },
+                color = if (isHostile) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(6.dp)
@@ -520,12 +684,43 @@ private fun RelationshipCard(
                     ) {
                         Text("Gift ($150)")
                     }
+                    if (rel.closeness < 35) {
+                        Button(
+                            onClick = { onInteract("apologize") },
+                            modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                        ) {
+                            Text("Make Amends")
+                        }
+                    } else {
+                        TextButton(
+                            onClick = { onInteract("argue") },
+                            modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                        ) {
+                            Text("Argue", color = MaterialTheme.colorScheme.error)
+                        }
+                    }
                     if (canPropose) {
                         Button(
                             onClick = { onInteract("propose") },
                             modifier = Modifier.defaultMinSize(minHeight = 48.dp)
                         ) {
                             Text("Propose")
+                        }
+                    }
+                    if (canHaveChild) {
+                        OutlinedButton(
+                            onClick = onHaveChild,
+                            modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                        ) {
+                            Text("Have Child")
+                        }
+                    }
+                    if (rel.isPartner || rel.isSpouse) {
+                        TextButton(
+                            onClick = onBreakUp,
+                            modifier = Modifier.defaultMinSize(minHeight = 48.dp)
+                        ) {
+                            Text("Break Up", color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }

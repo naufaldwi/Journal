@@ -50,6 +50,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.example.engine.CountryCatalog
 import com.example.model.AvatarAppearance
+import com.example.model.CharacterGender
 import com.example.model.LifeStats
 import com.example.model.TemperamentTrait
 import com.example.ui.components.AvatarPalettes
@@ -69,7 +70,8 @@ fun NewLifeScreen(
         pronouns: String,
         trait: TemperamentTrait,
         appearance: AvatarAppearance,
-        stats: LifeStats
+        stats: LifeStats,
+        gender: CharacterGender
     ) -> Unit
 ) {
     if (canCancel) {
@@ -78,11 +80,12 @@ fun NewLifeScreen(
 
     var selectedCountry by remember { mutableStateOf(CountryCatalog.countries.first()) }
     var selectedCity by remember { mutableStateOf(selectedCountry.cities.first()) }
+    var gender by remember { mutableStateOf(CharacterGender.FEMALE) }
+    var pronouns by remember { mutableStateOf(CharacterGender.FEMALE.defaultPronouns) }
     var name by remember {
-        val (fn, ln) = CountryCatalog.randomNameForBirthplace(selectedCountry.cities.first())
+        val (fn, ln) = CountryCatalog.randomNameForBirthplace(selectedCountry.cities.first(), isMale = false)
         mutableStateOf("$fn $ln")
     }
-    var pronouns by remember { mutableStateOf("they/them") }
     var birthYear by remember { mutableIntStateOf(1998) }
     var trait by remember { mutableStateOf(TemperamentTrait.CURIOUS) }
 
@@ -280,7 +283,12 @@ fun NewLifeScreen(
                                 onClick = {
                                     selectedCountry = country
                                     selectedCity = country.cities.first()
-                                    val (fn, ln) = CountryCatalog.randomNameForBirthplace(selectedCity)
+                                    val isMale = when (gender) {
+                                        CharacterGender.MALE -> true
+                                        CharacterGender.FEMALE -> false
+                                        CharacterGender.NON_BINARY -> null
+                                    }
+                                    val (fn, ln) = CountryCatalog.randomNameForBirthplace(selectedCity, isMale = isMale)
                                     name = "$fn $ln"
                                 },
                                 label = { Text(country.countryName) }
@@ -317,7 +325,12 @@ fun NewLifeScreen(
                         )
                         TextButton(
                             onClick = {
-                                val (fn, ln) = CountryCatalog.randomNameForBirthplace(selectedCity)
+                                val isMale = when (gender) {
+                                    CharacterGender.MALE -> true
+                                    CharacterGender.FEMALE -> false
+                                    CharacterGender.NON_BINARY -> null
+                                }
+                                val (fn, ln) = CountryCatalog.randomNameForBirthplace(selectedCity, isMale = isMale)
                                 name = "$fn $ln"
                             }
                         ) {
@@ -325,13 +338,24 @@ fun NewLifeScreen(
                         }
                     }
 
-                    Text("Pronouns & Birth Year", style = MaterialTheme.typography.labelMedium)
+                    Text("Gender, Pronouns & Birth Year", style = MaterialTheme.typography.labelMedium)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("they/them", "she/her", "he/him").forEach { p ->
+                        CharacterGender.entries.forEach { g ->
                             FilterChip(
-                                selected = pronouns == p,
-                                onClick = { pronouns = p },
-                                label = { Text(p) }
+                                selected = gender == g,
+                                onClick = {
+                                    gender = g
+                                    pronouns = g.defaultPronouns
+                                    val isMale = when (g) {
+                                        CharacterGender.MALE -> true
+                                        CharacterGender.FEMALE -> false
+                                        CharacterGender.NON_BINARY -> null
+                                    }
+                                    val (fn, ln) = CountryCatalog.randomNameForBirthplace(selectedCity, isMale = isMale)
+                                    name = "$fn $ln"
+                                },
+                                label = { Text("${g.label} (${g.defaultPronouns})") },
+                                modifier = Modifier.testTag("gender_chip_${g.name}")
                             )
                         }
                     }
@@ -415,7 +439,8 @@ fun NewLifeScreen(
                             intellect = intellect,
                             creativity = creativity,
                             fitness = fitness
-                        )
+                        ),
+                        gender
                     )
                 },
                 shape = RoundedCornerShape(18.dp),

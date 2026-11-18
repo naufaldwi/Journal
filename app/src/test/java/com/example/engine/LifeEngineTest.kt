@@ -1,8 +1,11 @@
 package com.example.engine
 
 import com.example.model.AvatarAppearance
+import com.example.model.BondCategory
 import com.example.model.CareerTrack
+import com.example.model.CharacterGender
 import com.example.model.CharacterSkills
+import com.example.model.DailyEventCategory
 import com.example.model.DailyMission
 import com.example.model.DailyMissionState
 import com.example.model.DietPlan
@@ -14,8 +17,13 @@ import com.example.model.LifeStage
 import com.example.model.LifeStats
 import com.example.model.MissionType
 import com.example.model.Relationship
+import com.example.model.RelationshipPriority
+import com.example.model.RomanceMethod
+import com.example.model.RomanceOrientation
 import com.example.model.SkillActivity
 import com.example.model.SleepSchedule
+import com.example.model.SocialChannel
+import com.example.model.SocialPostTopic
 import com.example.model.StreamFormat
 import com.example.model.TemperamentTrait
 import org.junit.Assert.assertEquals
@@ -92,7 +100,8 @@ class LifeEngineTest {
                 role = "Romantic Interest",
                 age = 33,
                 closeness = 81,
-                isPartner = true
+                isPartner = true,
+                interactedThisYear = true
             )
         )
         val at35 = LifeEngine.ageUp(at34).updatedLife
@@ -434,5 +443,529 @@ class LifeEngineTest {
         assertEquals(0, repaid.netWorth)
         assertEquals(11_000, repaid.loanDebt)
         assertTrue(repayMsg.contains("Paid"))
+    }
+
+    @Test
+    fun indonesianNames_respectGenderedListsAndParentRoles() {
+        val indonesia = CountryCatalog.findCountryForBirthplace("Jakarta, Indonesia")
+        assertTrue(indonesia.maleFirstNames.contains("Dimas"))
+        assertFalse(indonesia.maleFirstNames.contains("Putri"))
+        assertTrue(indonesia.femaleFirstNames.contains("Putri"))
+        assertFalse(indonesia.femaleFirstNames.contains("Dimas"))
+
+        repeat(20) {
+            val (maleFirst, _) = CountryCatalog.randomNameForBirthplace("Jakarta, Indonesia", isMale = true)
+            assertTrue(indonesia.maleFirstNames.contains(maleFirst))
+            val (femaleFirst, _) = CountryCatalog.randomNameForBirthplace("Jakarta, Indonesia", isMale = false)
+            assertTrue(indonesia.femaleFirstNames.contains(femaleFirst))
+        }
+
+        val life = LifeEngine.createNewLife(
+            characterName = "Dimas Nugroho",
+            birthplace = "Jakarta, Indonesia",
+            birthYear = 2002,
+            pronouns = "he/him",
+            trait = TemperamentTrait.CURIOUS,
+            appearance = AvatarAppearance(),
+            startingStats = LifeStats(),
+            gender = CharacterGender.MALE
+        ).updatedLife
+        val mom = life.relationships.first { it.role == "Mother" }
+        val dad = life.relationships.first { it.role == "Father" }
+        assertEquals(CharacterGender.FEMALE, mom.gender)
+        assertEquals(CharacterGender.MALE, dad.gender)
+    }
+
+    @Test
+    fun romanceSystem_enforcesAge14OneTimeOnboardingRejectionAndAntiCheatingCheck() {
+        val teen = LifeEngine.createNewLife(
+            characterName = "Raka Putra",
+            birthplace = "Bandung, Indonesia",
+            birthYear = 2006,
+            pronouns = "he/him",
+            trait = TemperamentTrait.EMPATHETIC,
+            appearance = AvatarAppearance(),
+            startingStats = LifeStats(happiness = 80, stress = 15),
+            gender = CharacterGender.MALE
+        ).updatedLife.copy(
+            currentAge = 13,
+            relationships = listOf(
+                Relationship(
+                    id = "friend_f",
+                    name = "Putri Ayu",
+                    role = "Classmate",
+                    age = 14,
+                    closeness = 70,
+                    gender = CharacterGender.FEMALE,
+                    category = BondCategory.SCHOOL
+                ),
+                Relationship(
+                    id = "adult_f",
+                    name = "Sari Dewi",
+                    role = "Professor",
+                    age = 34,
+                    closeness = 80,
+                    gender = CharacterGender.FEMALE,
+                    category = BondCategory.SCHOOL
+                )
+            )
+        )
+
+        // Blocked before age 14 & onboarding prompt hasn't been shown yet
+        assertFalse(teen.orientationPromptShown)
+        val (_, age13Msg) = LifeEngine.seekRomance(teen, RomanceMethod.BLIND_DATE)
+        assertTrue(age13Msg.contains("14"))
+
+        // At age 14, requires orientation first; dismissing onboarding marks orientationPromptShown once
+        val at14 = teen.copy(currentAge = 14)
+        val dismissedOnce = LifeEngine.dismissOrientationOnboarding(at14)
+        assertTrue(dismissedOnce.orientationPromptShown)
+        val (_, orientMsg) = LifeEngine.seekRomance(dismissedOnce, RomanceMethod.BLIND_DATE)
+        assertTrue(orientMsg.contains("orientation", ignoreCase = true))
+
+        // Set orientation once -> heterosexual & marks onboarding shown
+        val oriented = LifeEngine.setOrientation(at14, RomanceOrientation.HETEROSEXUAL).updatedLife
+        assertEquals(RomanceOrientation.HETEROSEXUAL, oriented.orientation)
+        assertTrue(oriented.orientationPromptShown)
+
+        // Age-appropriate & role-appropriate check: minor cannot match with adult professor
+        assertTrue(LifeEngine.isCompatibleRomanceTarget(oriented, oriented.relationships.first { it.id == "friend_f" }))
+        assertFalse(LifeEngine.isCompatibleRomanceTarget(oriented, oriented.relationships.first { it.id == "adult_f" }))
+
+        // Rejection hurts mood & friend closeness on failed confession
+        val (rejectedTurn, rejMsg) = LifeEngine.seekRomance(
+            life = oriented,
+            method = RomanceMethod.FRIEND_TO_PARTNER,
+            friendId = "friend_f",
+            outcomeRoll = 0.01f
+        )
+        assertTrue(rejMsg.contains("turned down"))
+        assertTrue(rejectedTurn.updatedLife.stats.happiness < oriented.stats.happiness)
+        assertTrue(rejectedTurn.updatedLife.relationships.first { it.id == "friend_f" }.closeness < 70)
+
+        // Rejection on Blind Date & Dating App lowers happiness & raises stress
+        val (blindMissTurn, blindMissMsg) = LifeEngine.seekRomance(
+            life = oriented,
+            method = RomanceMethod.BLIND_DATE,
+            outcomeRoll = 0.01f
+        )
+        assertTrue(blindMissMsg.contains("No Spark"))
+        assertTrue(blindMissTurn.updatedLife.stats.happiness < oriented.stats.happiness)
+
+        // Successful romance produces partner of compatible gender & enforces anti-cheating check
+        val (datedTurn, _) = LifeEngine.seekRomance(
+            life = oriented.copy(currentAge = 19),
+            method = RomanceMethod.DATING_APP,
+            outcomeRoll = 0.99f
+        )
+        val datingLife = datedTurn.updatedLife
+        assertEquals(1, datingLife.activePartnerCount)
+        assertEquals(CharacterGender.FEMALE, datingLife.relationships.first { it.isPartner }.gender)
+
+        // Anti-cheating check strictly blocks dating someone else while already partnered
+        val (blockedTurn, antiCheatMsg) = LifeEngine.seekRomance(
+            life = datingLife,
+            method = RomanceMethod.BLIND_DATE,
+            outcomeRoll = 0.99f
+        )
+        assertTrue(antiCheatMsg.contains("Cheating prevented"))
+        assertEquals(1, blockedTurn.updatedLife.activePartnerCount)
+
+        // Breaking up cleanly allows pursuing a new romance (e.g., friend-to-partner)
+        val currentPartnerId = datingLife.relationships.first { it.isPartner }.id
+        val singleAgain = LifeEngine.breakUpWithPartner(datingLife, currentPartnerId).updatedLife.copy(
+            relationships = listOf(
+                Relationship(
+                    id = "adult_friend",
+                    name = "Nadia Putri",
+                    role = "College Classmate",
+                    age = 19,
+                    closeness = 78,
+                    gender = CharacterGender.FEMALE,
+                    category = BondCategory.SCHOOL
+                )
+            )
+        )
+        assertEquals(0, singleAgain.activePartnerCount)
+        val (friendConverted, friendMsg) = LifeEngine.seekRomance(
+            life = singleAgain,
+            method = RomanceMethod.FRIEND_TO_PARTNER,
+            friendId = "adult_friend",
+            outcomeRoll = 0.99f
+        )
+        assertTrue(friendMsg.contains("Now dating Nadia Putri"))
+        assertEquals(1, friendConverted.updatedLife.activePartnerCount)
+    }
+
+    @Test
+    fun bondNeglectDecaysCloseness_hatredCausesMisery_andMultipleChildrenSupported() {
+        val base = LifeEngine.createNewLife(
+            characterName = "Dewi Sari",
+            birthplace = "Surabaya, Indonesia",
+            birthYear = 1998,
+            pronouns = "she/her",
+            trait = TemperamentTrait.RESILIENT,
+            appearance = AvatarAppearance(),
+            startingStats = LifeStats(happiness = 82, stress = 15),
+            gender = CharacterGender.FEMALE
+        ).updatedLife.copy(
+            currentAge = 26,
+            relationships = listOf(
+                Relationship(id = "f1", name = "Ayu", role = "Friend", age = 26, closeness = 65, interactedThisYear = false),
+                Relationship(id = "h1", name = "Colleague 1", role = "Office Colleague", age = 28, closeness = 15, category = BondCategory.WORK),
+                Relationship(id = "h2", name = "Colleague 2", role = "Team Manager", age = 34, closeness = 18, category = BondCategory.WORK),
+                Relationship(id = "h3", name = "Neighbor", role = "Neighbor", age = 30, closeness = 20, category = BondCategory.FRIEND),
+                Relationship(id = "sp", name = "Bagas", role = "Spouse", age = 27, closeness = 90, isPartner = true, isSpouse = true, gender = CharacterGender.MALE, category = BondCategory.ROMANCE, interactedThisYear = true)
+            )
+        )
+
+        // Neglected friend loses closeness while hated contacts trigger misery penalty on ageUp
+        val aged = LifeEngine.ageUp(base).updatedLife
+        val neglectedFriend = aged.relationships.first { it.id == "f1" }
+        assertTrue("Neglected contact closeness should decay", neglectedFriend.closeness < 65)
+        assertTrue("Neglected counter should increment", neglectedFriend.yearsNeglected >= 1)
+        assertTrue(aged.isMiserableFromHatred)
+        assertTrue(aged.entries.any { it.title == "Surrounded by Bitterness" })
+
+        // Direct interaction resets yearsNeglected
+        val reconnected = LifeEngine.interactRelationship(aged, "f1", "time").updatedLife
+        assertEquals(0, reconnected.relationships.first { it.id == "f1" }.yearsNeglected)
+
+        // Multiple children supported cleanly
+        val beforeChildren = reconnected.childrenCount
+        val (child1Turn, _) = LifeEngine.tryHaveOrAdoptChild(reconnected, "sp")
+        val (child2Turn, _) = LifeEngine.tryHaveOrAdoptChild(child1Turn.updatedLife, "sp")
+        assertEquals(beforeChildren + 2, child2Turn.updatedLife.childrenCount)
+    }
+
+    @Test
+    fun annualGlobalNewsFeed_updatesEveryYearWithRegionEraAndCategories() {
+        var life = LifeEngine.createNewLife(
+            characterName = "Sakura Tanaka",
+            birthplace = "Tokyo, Japan",
+            birthYear = 2000,
+            pronouns = "she/her",
+            trait = TemperamentTrait.CURIOUS,
+            appearance = AvatarAppearance(),
+            startingStats = LifeStats(),
+            gender = CharacterGender.FEMALE
+        ).updatedLife
+
+        assertEquals(1, life.globalNewsFeed.size)
+        assertEquals("East Asia", life.globalNewsFeed.first().region)
+
+        repeat(3) {
+            life = LifeEngine.ageUp(life).updatedLife.copy(pendingPrompt = null)
+        }
+        assertEquals(4, life.globalNewsFeed.size)
+        assertEquals(2003, life.globalNewsFeed.first().year)
+        assertEquals("East Asia", life.globalNewsFeed.first().region)
+        assertEquals(3, life.globalNewsFeed.map { it.category }.distinct().size)
+
+        // Era & region sensitivity: 1975 Cold War vs 2040 Orbital/Fusion, Europe vs Southeast Asia
+        val coldWarEurope = LifeEngine.generateAnnualGlobalNews(1975, "London, UK")
+        val futureSea = LifeEngine.generateAnnualGlobalNews(2041, "Jakarta, Indonesia")
+        assertEquals("Europe", coldWarEurope.region)
+        assertEquals("Southeast Asia", futureSea.region)
+        assertNotEquals(coldWarEurope.headline, futureSea.headline)
+        assertTrue(
+            "Future tech or orbital news should reflect modern/future era",
+            futureSea.headline.contains("Fusion", ignoreCase = true) ||
+                futureSea.headline.contains("Orbital", ignoreCase = true) ||
+                futureSea.headline.contains("Longevity", ignoreCase = true) ||
+                futureSea.headline.contains("Civic", ignoreCase = true)
+        )
+
+        // Legacy/empty save backfill produces dispatch for currentYear and birthplace region
+        val emptyFeedSave = life.copy(globalNewsFeed = emptyList())
+        val backfilled = LifeEngine.ensureGlobalNewsFeed(emptyFeedSave)
+        assertEquals(1, backfilled.globalNewsFeed.size)
+        assertEquals(backfilled.currentYear, backfilled.globalNewsFeed.first().year)
+        assertEquals("East Asia", backfilled.globalNewsFeed.first().region)
+    }
+
+    @Test
+    fun moodTrends_recordsUpToTenYearsWithCareerStressAndEncounterMarkers() {
+        var life = LifeEngine.createNewLife(
+            characterName = "Aditya Pratama",
+            birthplace = "Jakarta, Indonesia",
+            birthYear = 1995,
+            pronouns = "he/him",
+            trait = TemperamentTrait.RESILIENT,
+            appearance = AvatarAppearance(),
+            startingStats = LifeStats(happiness = 80, stress = 18, anxiety = 14),
+            gender = CharacterGender.MALE
+        ).updatedLife.copy(
+            currentAge = 20,
+            careerTrack = CareerTrack.MEDICINE,
+            careerRung = 0,
+            skills = CharacterSkills(engineeringTech = 75, deductionLaw = 70)
+        )
+
+        repeat(12) {
+            life = LifeEngine.ageUp(life).updatedLife.let { next ->
+                next.copy(
+                    pendingPrompt = null,
+                    relationships = next.relationships.map {
+                        if (it.category == BondCategory.WORK) it.copy(closeness = 80, interactedThisYear = true) else it
+                    }
+                )
+            }
+        }
+
+        assertEquals(32, life.currentAge)
+        assertEquals(10, life.moodHistory.size)
+        assertEquals(23, life.moodHistory.first().age)
+        assertEquals(32, life.moodHistory.last().age)
+        assertTrue(life.moodHistory.any { it.careerStressLoad >= 14 })
+        assertTrue(life.moodHistory.last().careerStressLoad >= 14)
+
+        val encounterTurn = LifeEngine.triggerRandomEncounter(life, roll = 0.60f).updatedLife
+        val latestSnap = encounterTurn.moodHistory.last()
+        assertTrue(latestSnap.hadRandomEncounter)
+        assertTrue(latestSnap.encounterLabel.isNotBlank())
+
+        // Legacy backfill builds up to 10 snapshots when moodHistory is empty
+        val legacySave = encounterTurn.copy(moodHistory = emptyList())
+        val restored = LifeEngine.ensureMoodHistory(legacySave)
+        assertEquals(10, restored.moodHistory.size)
+        assertEquals(32, restored.moodHistory.last().age)
+    }
+
+    @Test
+    fun socialStream_scalesLikesAndNpcCommentsByPopularityAndRelations() {
+        val child = LifeEngine.createNewLife(
+            characterName = "Raka Putra",
+            birthplace = "Jakarta, Indonesia",
+            birthYear = 2005,
+            pronouns = "he/him",
+            trait = TemperamentTrait.ARTISTIC,
+            appearance = AvatarAppearance(),
+            startingStats = LifeStats(),
+            gender = CharacterGender.MALE
+        ).updatedLife.copy(currentAge = 11)
+
+        // Blocked below age 13
+        val (_, blockedMsg) = LifeEngine.postToSocialStream(child, SocialPostTopic.LIFE, "Hello!")
+        assertTrue(blockedMsg.contains("Age 13"))
+        assertTrue(child.socialFeed.isEmpty())
+
+        // Low-popularity teen at age 15 with minimal circle
+        val lowPopLife = child.copy(
+            currentAge = 15,
+            fame = 0,
+            socialChannel = SocialChannel(handle = "@raka_notes", followers = 12, reputation = 50),
+            relationships = listOf(
+                Relationship(id = "f_low", name = "Budi Santoso", role = "Classmate", age = 15, closeness = 58, category = BondCategory.SCHOOL)
+            )
+        )
+        val lowScore = LifeEngine.computePopularityScore(lowPopLife)
+        val (lowResult, _) = LifeEngine.postToSocialStream(lowPopLife, SocialPostTopic.LIFE, "Studying late tonight", rollSeed = 42)
+        val lowPost = lowResult.updatedLife.socialFeed.first()
+        assertEquals(SocialPostTopic.LIFE, lowPost.topic)
+        assertTrue(lowPost.comments.isNotEmpty())
+
+        // High-popularity adult with fame, big following, close partner, colleague & hostile rival
+        val highPopLife = child.copy(
+            currentAge = 27,
+            careerTrack = CareerTrack.BAND_GUITARIST,
+            careerRung = 2,
+            fame = 88,
+            socialChannel = SocialChannel(handle = "@raka_live", followers = 85_000, reputation = 92),
+            relationships = listOf(
+                Relationship(id = "partner_1", name = "Nadia Putri", role = "Partner", age = 26, closeness = 95, isPartner = true, gender = CharacterGender.FEMALE, category = BondCategory.ROMANCE),
+                Relationship(id = "work_1", name = "Dimas Wijaya", role = "Studio Producer", age = 36, closeness = 86, category = BondCategory.WORK),
+                Relationship(id = "hater_1", name = "Bagus Pratama", role = "Rival Colleague", age = 28, closeness = 12, category = BondCategory.WORK)
+            )
+        )
+        val highScore = LifeEngine.computePopularityScore(highPopLife)
+        assertTrue("High popularity ($highScore) should exceed low popularity ($lowScore)", highScore > lowScore)
+        assertTrue(highScore >= 72)
+
+        val (highCareerTurn, _) = LifeEngine.postToSocialStream(
+            highPopLife,
+            SocialPostTopic.CAREER,
+            "Sold out our acoustic set in Jakarta!",
+            rollSeed = 17
+        )
+        val careerPost = highCareerTurn.updatedLife.socialFeed.first()
+        assertEquals(SocialPostTopic.CAREER, careerPost.topic)
+        assertTrue("Popular post likes (${careerPost.likes}) should far exceed low popularity likes (${lowPost.likes})", careerPost.likes > lowPost.likes * 10)
+        assertEquals(4, careerPost.comments.size)
+        assertTrue(careerPost.comments.any { it.authorName == "Nadia Putri" || it.authorName == "Dimas Wijaya" })
+        assertTrue(careerPost.comments.any { it.authorName == "Bagus Pratama" && !it.isSupportive })
+
+        // Posting Relationship update preserves chronological prepended feed
+        val (relTurn, _) = LifeEngine.postToSocialStream(
+            highCareerTurn.updatedLife,
+            SocialPostTopic.RELATIONSHIP,
+            "Dinner date with Nadia tonight",
+            rollSeed = 5
+        )
+        assertEquals(2, relTurn.updatedLife.socialFeed.size)
+        assertEquals(SocialPostTopic.RELATIONSHIP, relTurn.updatedLife.socialFeed.first().topic)
+    }
+
+    @Test
+    fun dailyRandomEvents_tailorByTraitCoverMoneyLostItemAndAcquaintanceAndAffectStats() {
+        val baseCurious = LifeEngine.createNewLife(
+            characterName = "Raka Putra",
+            birthplace = "Jakarta, Indonesia",
+            birthYear = 2000,
+            pronouns = "he/him",
+            trait = TemperamentTrait.CURIOUS,
+            appearance = AvatarAppearance(),
+            startingStats = LifeStats(happiness = 72, intellect = 60, stress = 25, anxiety = 20, karma = 60),
+            gender = CharacterGender.MALE
+        ).updatedLife
+
+        // Gated below age 6
+        val infantCheck = LifeEngine.checkDailyRandomEvent(baseCurious, dateKey = "2026-11-17", roll = 0.1f)
+        assertEquals(null, infantCheck.pendingDailyEvent)
+
+        // Curious trait -> stumbling upon money inside a used book
+        val adultCurious = baseCurious.copy(currentAge = 24, netWorth = 1000)
+        val triggeredCurious = LifeEngine.checkDailyRandomEvent(adultCurious, dateKey = "2026-11-17", roll = 0.1f)
+        val curiousEv = triggeredCurious.pendingDailyEvent!!
+        assertEquals(TemperamentTrait.CURIOUS, curiousEv.trait)
+        assertEquals(DailyEventCategory.MONEY_FIND, curiousEv.category)
+
+        // Idempotent for same dateKey
+        val duplicateCheck = LifeEngine.checkDailyRandomEvent(triggeredCurious, dateKey = "2026-11-17", roll = 0.8f)
+        assertEquals(curiousEv.id, duplicateCheck.pendingDailyEvent?.id)
+
+        // Resolving primary choice boosts cash, happiness & intellect and clears pendingDailyEvent
+        val resolvedCurious = LifeEngine.resolveDailyRandomEvent(triggeredCurious, curiousEv.choices.first()).updatedLife
+        assertEquals(null, resolvedCurious.pendingDailyEvent)
+        assertEquals("2026-11-17", resolvedCurious.lastDailyEventDateKey)
+        assertTrue(resolvedCurious.netWorth > adultCurious.netWorth)
+        assertTrue(resolvedCurious.stats.happiness > adultCurious.stats.happiness)
+        assertTrue(resolvedCurious.stats.intellect > adultCurious.stats.intellect)
+        assertTrue(resolvedCurious.entries.any { it.category == EntryCategory.RANDOM_EVENT && it.title == curiousEv.title })
+
+        // Empathetic trait -> lost item can boost or reduce mood depending on choice
+        val empLife = adultCurious.copy(trait = TemperamentTrait.EMPATHETIC, lastDailyEventDateKey = "")
+        val triggeredEmp = LifeEngine.checkDailyRandomEvent(empLife, dateKey = "2026-11-18", roll = 0.15f)
+        val empEv = triggeredEmp.pendingDailyEvent!!
+        assertEquals(DailyEventCategory.LOST_ITEM, empEv.category)
+        val pawnChoice = empEv.choices.last()
+        val reducedMoodLife = LifeEngine.resolveDailyRandomEvent(triggeredEmp, pawnChoice).updatedLife
+        assertTrue(reducedMoodLife.stats.happiness < empLife.stats.happiness)
+        assertTrue(reducedMoodLife.stats.anxiety > empLife.stats.anxiety)
+        assertTrue(reducedMoodLife.stats.karma < empLife.stats.karma)
+
+        // Resilient trait -> encountering an old acquaintance adds/updates relationship & improves mood/fitness
+        val resLife = adultCurious.copy(trait = TemperamentTrait.RESILIENT, lastDailyEventDateKey = "")
+        val triggeredRes = LifeEngine.checkDailyRandomEvent(resLife, dateKey = "2026-11-19", roll = 0.85f)
+        val resEv = triggeredRes.pendingDailyEvent!!
+        assertEquals(DailyEventCategory.OLD_ACQUAINTANCE, resEv.category)
+        val relBefore = resLife.relationships.size
+        val resolvedRes = LifeEngine.resolveDailyRandomEvent(triggeredRes, resEv.choices.first()).updatedLife
+        assertTrue(resolvedRes.stats.happiness > resLife.stats.happiness)
+        assertTrue(resolvedRes.stats.stress < resLife.stats.stress)
+        assertTrue(resolvedRes.relationships.size >= relBefore)
+
+        // Artistic trait -> negative daily twist reduces happiness & cash and raises stress
+        val artLife = adultCurious.copy(trait = TemperamentTrait.ARTISTIC, lastDailyEventDateKey = "")
+        val triggeredArt = LifeEngine.checkDailyRandomEvent(artLife, dateKey = "2026-11-20", roll = 0.5f)
+        val artEv = triggeredArt.pendingDailyEvent!!
+        val resolvedArt = LifeEngine.resolveDailyRandomEvent(triggeredArt, artEv.choices.first()).updatedLife
+        assertTrue(resolvedArt.stats.happiness < artLife.stats.happiness)
+        assertTrue(resolvedArt.stats.stress > artLife.stats.stress)
+        assertTrue(resolvedArt.netWorth < artLife.netWorth)
+    }
+
+    @Test
+    fun relationshipSettings_prioritizesInteractionAndGiftingAcrossBoostAndAgeUp() {
+        val base = LifeEngine.createNewLife(
+            characterName = "Dina Kusuma",
+            birthplace = "Surabaya, Indonesia",
+            birthYear = 1997,
+            pronouns = "she/her",
+            trait = TemperamentTrait.EMPATHETIC,
+            appearance = AvatarAppearance(),
+            startingStats = LifeStats(happiness = 72, stress = 30, anxiety = 22),
+            gender = CharacterGender.FEMALE
+        ).updatedLife.copy(
+            currentAge = 27,
+            netWorth = 500,
+            relationships = listOf(
+                Relationship(
+                    id = "r_interact",
+                    name = "Raka Putra",
+                    role = "Close Friend",
+                    age = 27,
+                    closeness = 60,
+                    yearsNeglected = 2,
+                    category = BondCategory.FRIEND
+                ),
+                Relationship(
+                    id = "r_gift",
+                    name = "Bagas Pratama",
+                    role = "Partner",
+                    age = 28,
+                    closeness = 65,
+                    isPartner = true,
+                    yearsNeglected = 1,
+                    gender = CharacterGender.MALE,
+                    category = BondCategory.ROMANCE
+                ),
+                Relationship(
+                    id = "r_std",
+                    name = "Budi Santoso",
+                    role = "Office Colleague",
+                    age = 31,
+                    closeness = 60,
+                    interactedThisYear = false,
+                    category = BondCategory.WORK
+                )
+            )
+        )
+
+        // Assigning priorities updates state cleanly
+        val withInteract = LifeEngine.setRelationshipPriority(base, "r_interact", RelationshipPriority.INTERACTION)
+        val withBoth = LifeEngine.setRelationshipPriority(withInteract, "r_gift", RelationshipPriority.GIFTING)
+        assertEquals(RelationshipPriority.INTERACTION, withBoth.relationships.first { it.id == "r_interact" }.priority)
+        assertEquals(RelationshipPriority.GIFTING, withBoth.relationships.first { it.id == "r_gift" }.priority)
+        assertEquals(RelationshipPriority.STANDARD, withBoth.relationships.first { it.id == "r_std" }.priority)
+
+        // Executing prioritized bond boost raises closeness (+8 interact, +14 gift), deducts $150, clears neglect, and leaves Standard untouched
+        val (boostTurn, boostMsg) = LifeEngine.executePrioritizedBondBoost(withBoth)
+        val boosted = boostTurn.updatedLife
+        assertEquals(350, boosted.netWorth)
+        assertEquals(68, boosted.relationships.first { it.id == "r_interact" }.closeness)
+        assertEquals(0, boosted.relationships.first { it.id == "r_interact" }.yearsNeglected)
+        assertEquals(79, boosted.relationships.first { it.id == "r_gift" }.closeness)
+        assertEquals(0, boosted.relationships.first { it.id == "r_gift" }.yearsNeglected)
+        assertEquals(60, boosted.relationships.first { it.id == "r_std" }.closeness)
+        assertTrue(boostMsg.contains("checked in with 1 prioritized contact(s)", ignoreCase = true))
+        assertTrue(boostMsg.contains("sent $150 gifts to 1 contact(s)", ignoreCase = true))
+        assertTrue(boosted.stats.happiness > withBoth.stats.happiness)
+
+        // Cash shortfall for gifting-only priority blocks gifting cleanly
+        val giftOnlyLowCash = withBoth.copy(
+            netWorth = 80,
+            relationships = withBoth.relationships.map {
+                if (it.id == "r_interact") it.copy(priority = RelationshipPriority.STANDARD) else it
+            }
+        )
+        val (shortfallTurn, shortfallMsg) = LifeEngine.executePrioritizedBondBoost(giftOnlyLowCash)
+        assertEquals(80, shortfallTurn.updatedLife.netWorth)
+        assertTrue(shortfallMsg.contains("Need $150"))
+
+        // Annual ageUp auto-maintains INTERACTION (+3) and auto-gifts GIFTING (+9 & -$150) while STANDARD drifts down
+        val preAge = withBoth.copy(
+            netWorth = 25_000,
+            relationships = withBoth.relationships.map { it.copy(interactedThisYear = false, yearsNeglected = 0) }
+        )
+        val aged = LifeEngine.ageUp(preAge).updatedLife
+        val agedInteract = aged.relationships.first { it.id == "r_interact" }
+        val agedGift = aged.relationships.first { it.id == "r_gift" }
+        val agedStd = aged.relationships.first { it.id == "r_std" }
+        assertEquals(0, agedInteract.yearsNeglected)
+        assertTrue("Interact priority should boost closeness on ageUp", agedInteract.closeness > 60)
+        assertEquals(0, agedGift.yearsNeglected)
+        assertTrue("Gift priority should boost closeness on ageUp", agedGift.closeness > 65)
+        assertTrue("Standard untouched contact should neglect & lose closeness on ageUp", agedStd.closeness < 60)
     }
 }

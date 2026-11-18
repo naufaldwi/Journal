@@ -220,8 +220,8 @@ private fun JournalSessionHost(
                 NewLifeScreen(
                     canCancel = uiState.activeLife != null,
                     onCancel = { viewModel.closeNewLifeWizard() },
-                    onBeginLife = { name, place, year, pronouns, trait, appearance, stats ->
-                        viewModel.startNewLife(name, place, year, pronouns, trait, appearance, stats)
+                    onBeginLife = { name, place, year, pronouns, trait, appearance, stats, gender ->
+                        viewModel.startNewLife(name, place, year, pronouns, trait, appearance, stats, gender)
                     }
                 )
             }
@@ -326,7 +326,12 @@ private fun JournalSessionHost(
                                 }
                             },
                             onCompleteDailyMission = { viewModel.completeDailyMission(it) },
-                            onClaimDailyMissionBonus = { viewModel.claimDailyMissionBonus() }
+                            onClaimDailyMissionBonus = { viewModel.claimDailyMissionBonus() },
+                            onSetOrientation = { viewModel.setOrientation(it) },
+                            onDismissOrientationOnboarding = { viewModel.dismissOrientationOnboarding() },
+                            onCheckDailyRandomEvent = { viewModel.checkDailyRandomEventIfNeeded() },
+                            onResolveDailyRandomEvent = { viewModel.resolveDailyRandomEvent(it) },
+                            onDismissDailyRandomEvent = { viewModel.dismissDailyRandomEvent() }
                         )
                     }
                     composable(ROUTE_ACTIVITIES) {
@@ -346,14 +351,22 @@ private fun JournalSessionHost(
                             onCommitSyndicateOp = { viewModel.commitSyndicateOp(it) },
                             onLeaveCrime = { viewModel.leaveCrimeLife() },
                             onInteractRelationship = { id, act -> viewModel.interactRelationship(id, act) },
-                            onMeetNewPerson = { romantic -> viewModel.meetNewPerson(romantic) },
+                            onMeetNewPerson = { cat -> viewModel.meetNewPerson(cat) },
+                            onSetOrientation = { viewModel.setOrientation(it) },
+                            onSeekRomance = { method, friendId -> viewModel.seekRomance(method, friendId) },
+                            onBreakUpPartner = { viewModel.breakUpWithPartner(it) },
+                            onHaveOrAdoptChild = { viewModel.haveOrAdoptChild(it) },
+                            onTriggerRandomEncounter = { viewModel.triggerRandomEncounter() },
                             onUpdateChannel = { handle, niche -> viewModel.updateChannelSettings(handle, niche) },
                             onPostContent = { rideTrend -> viewModel.postCreatorContent(rideTrend) },
                             onInteractFollowers = { action -> viewModel.interactWithFollowers(action) },
                             onCompleteLiveStream = { fmt, topic, engaged -> viewModel.completeLiveStream(fmt, topic, engaged) },
                             onLaunchMerch = { name -> viewModel.launchMerchLine(name) },
                             onSignSponsor = { name, pay, rep -> viewModel.signSponsorship(name, pay, rep) },
-                            onUpgradeGear = { viewModel.upgradeStudioGearWithSparkles() }
+                            onUpgradeGear = { viewModel.upgradeStudioGearWithSparkles() },
+                            onPostToSocialStream = { topic, msg -> viewModel.postToSocialStream(topic, msg) },
+                            onSetRelationshipPriority = { id, prio -> viewModel.setRelationshipPriority(id, prio) },
+                            onRunPriorityBondBoost = { viewModel.runPriorityBondBoost() }
                         )
                     }
                     composable(ROUTE_TREE) {

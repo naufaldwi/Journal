@@ -4,6 +4,20 @@ All notable updates for **Journal** are documented here. You can copy any sectio
 
 ---
 
+## v1.1.5 — Social Life, World Events & Relationship Depth Update
+
+### What's New
+- **Romance Overhaul & Gendered Indonesian Names**: Added a one-time sexual orientation choice before seeking romance, three distinct dating paths (*Dating App*, *Blind Date*, and *Friend-to-Partner*) with realistic rejection odds affecting mood and closeness, a strict anti-cheating check preventing multiple active partners, annual closeness drift when relationships are neglected, and gender-accurate Indonesian naming pools.
+- **Multi-Child Families**: Removed the single-child limit so couples and families can welcome or adopt multiple children across generations.
+- **Office & Professional Dynamics**: Added a Career screen breakdown displaying colleague, manager, and teacher bonds alongside a visual **Life Miserable** warning indicator showing how hostile ties affect happiness and stress.
+- **Dynamic Annual Global News Feed**: Added yearly world dispatches covering wars, scientific breakthroughs, and cultural shifts tailored dynamically to the active year and country/region.
+- **10-Year Mood Trends Visualization**: Added a visual mood-trend chart on the Health screen plotting Happiness, Stress, Anxiety, career stress load, and random encounter markers over the past 10 years.
+- **Social Stream Feed**: Characters (Age 13+) can post **Life**, **Career**, and **Relationship** updates and receive popularity-scaled likes plus supportive or critical comments from NPCs.
+- **Daily Random Events**: Added trait-tailored daily encounter popups (stumbling upon cash, finding lost items, running into old acquaintances) with choices that shift mood, stats, and bonds.
+- **Relationship Settings Dashboard**: Added a dedicated tie-priority manager (accessible from **Activities** and **Relationships & Bonds**) to assign NPCs to *Standard*, *Interact*, or *Gift ($150)* priorities, filter by group, run quick check-ins/gifts, and batch-boost prioritized bonds.
+
+---
+
 ## v1.1.0 — Calm Submenu UI & Usability Update
 
 ### What's New

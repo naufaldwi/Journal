@@ -22,8 +22,10 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Diversity3
 import androidx.compose.material.icons.outlined.FitnessCenter
+import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.LiveTv
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.WorkOutline
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -46,13 +48,19 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.engine.CountryCatalog
+import com.example.engine.LifeEngine
 import com.example.engine.StreamOutcome
+import com.example.model.BondCategory
 import com.example.model.CareerTrack
 import com.example.model.EducationType
 import com.example.model.LifeState
+import com.example.model.RelationshipPriority
+import com.example.model.RomanceMethod
+import com.example.model.RomanceOrientation
 import com.example.model.SkillActivity
 import com.example.model.SkillType
 import com.example.model.SocialNiche
+import com.example.model.SocialPostTopic
 import com.example.model.StreamFormat
 import com.example.ui.components.AdultLoansCard
 import com.example.ui.components.SkillActivitiesCard
@@ -65,8 +73,10 @@ enum class ActivitySubmenu(val title: String) {
     EDUCATION_CAREERS("Education & Careers"),
     SKILLS_LOANS("Skills & Loans"),
     CREATOR_STUDIO("Creator Studio"),
+    SOCIAL_STREAM("Social Stream"),
     UNDERWORLD("Underworld"),
-    BONDS("Relationships & Bonds")
+    BONDS("Relationships & Bonds"),
+    RELATIONSHIP_SETTINGS("Relationship Settings")
 }
 
 private data class HubMenuEntry(
@@ -93,14 +103,22 @@ fun ActivitiesHubScreen(
     onCommitSyndicateOp: (Int) -> Unit,
     onLeaveCrime: () -> Unit,
     onInteractRelationship: (String, String) -> Unit,
-    onMeetNewPerson: (Boolean) -> Unit,
+    onMeetNewPerson: (BondCategory?) -> Unit,
+    onSetOrientation: (RomanceOrientation) -> Unit,
+    onSeekRomance: (RomanceMethod, String?) -> Unit,
+    onBreakUpPartner: (String) -> Unit,
+    onHaveOrAdoptChild: (String?) -> Unit,
+    onTriggerRandomEncounter: () -> Unit,
     onUpdateChannel: (String, SocialNiche) -> Unit,
     onPostContent: (Boolean) -> Unit,
     onInteractFollowers: (String) -> Unit,
     onCompleteLiveStream: (StreamFormat, String, Boolean) -> Unit,
     onLaunchMerch: (String) -> Unit,
     onSignSponsor: (String, Int, Int) -> Unit,
-    onUpgradeGear: () -> Unit
+    onUpgradeGear: () -> Unit,
+    onPostToSocialStream: (SocialPostTopic, String) -> Unit,
+    onSetRelationshipPriority: (String, RelationshipPriority) -> Unit,
+    onRunPriorityBondBoost: () -> Unit
 ) {
     var activeSubmenu by rememberSaveable { mutableStateOf(ActivitySubmenu.HUB) }
     val moneyFmt = remember { NumberFormat.getCurrencyInstance(Locale.US).apply { maximumFractionDigits = 0 } }
@@ -123,8 +141,10 @@ fun ActivitiesHubScreen(
                 icon = Icons.Outlined.WorkOutline,
                 title = "Education & Careers",
                 subtitle = when {
-                    life.inSchool -> "Studying: ${life.educationType.label}"
-                    life.careerTrack != CareerTrack.UNEMPLOYED -> "${life.currentCareerTitle} · Perf ${life.careerPerformance}%"
+                    life.isMiserableFromHatred -> "${life.currentCareerTitle} · Life Miserable (${life.hateCount} hostile)"
+                    life.inSchool -> "Studying: ${life.educationType.label} · Standing ${life.professionalStanding}/100"
+                    life.careerTrack != CareerTrack.UNEMPLOYED -> "${life.currentCareerTitle} · Standing ${life.professionalStanding}/100"
+                    life.schoolWorkBonds.isNotEmpty() -> "Office/School Standing ${life.professionalStanding}/100 · Career ladders"
                     else -> "Conservatories, Law School & 13 career ladders"
                 }
             ),
@@ -141,6 +161,15 @@ fun ActivitiesHubScreen(
                 subtitle = "${life.socialChannel.handle} · ${life.socialChannel.followers} followers · ${life.socialChannel.totalStreams} streams"
             ),
             HubMenuEntry(
+                submenu = ActivitySubmenu.SOCIAL_STREAM,
+                icon = Icons.Outlined.Forum,
+                title = "Social Stream",
+                subtitle = run {
+                    val pop = LifeEngine.computePopularityScore(life)
+                    "Popularity $pop/100 (${LifeEngine.popularityTierLabel(pop)}) · ${life.socialFeed.size} post(s)"
+                }
+            ),
+            HubMenuEntry(
                 submenu = ActivitySubmenu.UNDERWORLD,
                 icon = Icons.Outlined.Shield,
                 title = "Underworld (${syndicate.localTerm})",
@@ -154,7 +183,17 @@ fun ActivitiesHubScreen(
                 submenu = ActivitySubmenu.BONDS,
                 icon = Icons.Outlined.Diversity3,
                 title = "Relationships & Bonds",
-                subtitle = "${life.relationships.count { it.isAlive }} active family, friends & partners"
+                subtitle = "${life.relationships.count { it.isAlive }} bonds · Romance, family & random encounters"
+            ),
+            HubMenuEntry(
+                submenu = ActivitySubmenu.RELATIONSHIP_SETTINGS,
+                icon = Icons.Outlined.Tune,
+                title = "Relationship Settings",
+                subtitle = run {
+                    val interactCount = life.relationships.count { it.isAlive && it.priority == RelationshipPriority.INTERACTION }
+                    val giftCount = life.relationships.count { it.isAlive && it.priority == RelationshipPriority.GIFTING }
+                    "$interactCount Interact · $giftCount Gift prioritized"
+                }
             )
         )
     }
@@ -238,7 +277,16 @@ fun ActivitiesHubScreen(
                             onEnrollEducation = onEnrollEducation,
                             onApplyCareer = onApplyCareer,
                             onWorkExtraHours = onWorkExtraHours,
-                            onBoostFame = onBoostFame
+                            onBoostFame = onBoostFame,
+                            onInteractRelationship = onInteractRelationship,
+                            onMeetProfessionalContact = {
+                                val targetCat = if (life.currentAge < 18 || life.inSchool) {
+                                    BondCategory.SCHOOL
+                                } else {
+                                    BondCategory.WORK
+                                }
+                                onMeetNewPerson(targetCat)
+                            }
                         )
                     }
 
@@ -278,6 +326,13 @@ fun ActivitiesHubScreen(
                         )
                     }
 
+                    ActivitySubmenu.SOCIAL_STREAM -> {
+                        SocialStreamScreen(
+                            life = life,
+                            onPostUpdate = onPostToSocialStream
+                        )
+                    }
+
                     ActivitySubmenu.UNDERWORLD -> {
                         UnderworldSubView(
                             life = life,
@@ -291,7 +346,22 @@ fun ActivitiesHubScreen(
                         BondsSubView(
                             life = life,
                             onInteractRelationship = onInteractRelationship,
-                            onMeetNewPerson = onMeetNewPerson
+                            onMeetNewPerson = onMeetNewPerson,
+                            onSetOrientation = onSetOrientation,
+                            onSeekRomance = onSeekRomance,
+                            onBreakUpPartner = onBreakUpPartner,
+                            onHaveOrAdoptChild = onHaveOrAdoptChild,
+                            onTriggerRandomEncounter = onTriggerRandomEncounter,
+                            onOpenRelationshipSettings = { activeSubmenu = ActivitySubmenu.RELATIONSHIP_SETTINGS }
+                        )
+                    }
+
+                    ActivitySubmenu.RELATIONSHIP_SETTINGS -> {
+                        RelationshipSettingsScreen(
+                            life = life,
+                            onSetPriority = onSetRelationshipPriority,
+                            onRunPriorityBoost = onRunPriorityBondBoost,
+                            onQuickInteract = onInteractRelationship
                         )
                     }
                 }

@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.MedicalServices
+import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.SelfImprovement
 import androidx.compose.material.icons.outlined.Spa
 import androidx.compose.material3.AlertDialog
@@ -66,15 +67,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.R
+import com.example.engine.LifeEngine
 import com.example.model.ChoiceOption
+import com.example.model.DailyEventChoice
 import com.example.model.DietPlan
 import com.example.model.ExerciseRoutine
 import com.example.model.JournalEntry
 import com.example.model.LifeChoicePrompt
 import com.example.model.LifeState
+import com.example.model.RomanceOrientation
 import com.example.model.SleepSchedule
 import com.example.ui.components.CharacterAvatar
 import com.example.ui.components.DailyMissionsCard
+import com.example.ui.components.DailyRandomEventDialog
+import com.example.ui.components.GlobalNewsFeedSheet
+import com.example.ui.components.MoodTrendsChartCard
+import com.example.ui.components.OrientationChoiceDialog
 import kotlinx.coroutines.delay
 import java.text.NumberFormat
 import java.util.Locale
@@ -96,12 +104,27 @@ fun JournalHomeScreen(
     onContinueAsHeir: () -> Unit,
     onOpenFamilyTree: () -> Unit,
     onCompleteDailyMission: (String) -> Unit,
-    onClaimDailyMissionBonus: () -> Unit
+    onClaimDailyMissionBonus: () -> Unit,
+    onSetOrientation: (RomanceOrientation) -> Unit,
+    onDismissOrientationOnboarding: () -> Unit,
+    onCheckDailyRandomEvent: () -> Unit = {},
+    onResolveDailyRandomEvent: (DailyEventChoice) -> Unit = {},
+    onDismissDailyRandomEvent: () -> Unit = {}
 ) {
     var showWellnessSheet by remember { mutableStateOf(false) }
     var showMissionsSheet by remember { mutableStateOf(false) }
+    var showNewsSheet by remember { mutableStateOf(false) }
     var showOptionalAdModal by remember { mutableStateOf(false) }
     val moneyFmt = remember { NumberFormat.getCurrencyInstance(Locale.US).apply { maximumFractionDigits = 0 } }
+    val todayKey = remember(life.currentAge, life.lastDailyEventDateKey) { LifeEngine.currentDayKey() }
+
+    LaunchedEffect(life.lifeId, life.isAlive, life.currentAge, life.prisonYearsLeft, life.lastDailyEventDateKey) {
+        if (life.isAlive && life.currentAge >= 6 && life.prisonYearsLeft == 0 &&
+            life.pendingDailyEvent == null && life.lastDailyEventDateKey != todayKey
+        ) {
+            onCheckDailyRandomEvent()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -128,6 +151,72 @@ fun JournalHomeScreen(
                         onOpenWellness = { showWellnessSheet = true },
                         onOpenMissions = { showMissionsSheet = true }
                     )
+                }
+
+                val latestNews = life.globalNewsFeed.firstOrNull()
+                if (latestNews != null) {
+                    item {
+                        Surface(
+                            onClick = { showNewsSheet = true },
+                            color = MaterialTheme.colorScheme.surface,
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .defaultMinSize(minHeight = 48.dp)
+                                .testTag("open_news_sheet_button")
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Public,
+                                    contentDescription = "World News Wire",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "${latestNews.year} World Wire · ${latestNews.region} · ${latestNews.category.label}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = latestNews.headline,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Text(
+                                    text = "Read",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (life.isMiserableFromHatred) {
+                    item {
+                        Surface(
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = "Tension Alert: ${life.hateCount} people despise you — repairing or distancing toxic bonds restores peace.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                            )
+                        }
+                    }
                 }
 
                 if (!life.isAlive) {
@@ -293,6 +382,31 @@ fun JournalHomeScreen(
                 }
             }
         }
+    }
+
+    if (showNewsSheet) {
+        GlobalNewsFeedSheet(
+            newsFeed = life.globalNewsFeed,
+            birthplace = life.birthplace,
+            currentYear = life.currentYear,
+            economyMultiplier = life.economyMultiplier,
+            onDismiss = { showNewsSheet = false }
+        )
+    }
+
+    val showOrientationModal = life.isAlive && life.currentAge >= 14 &&
+        !life.orientationPromptShown && life.orientation == RomanceOrientation.UNSET
+    if (showOrientationModal) {
+        OrientationChoiceDialog(
+            onSelect = onSetOrientation,
+            onDismiss = onDismissOrientationOnboarding
+        )
+    } else if (life.isAlive && life.pendingDailyEvent != null) {
+        DailyRandomEventDialog(
+            event = life.pendingDailyEvent,
+            onSelectChoice = onResolveDailyRandomEvent,
+            onDismiss = onDismissDailyRandomEvent
+        )
     }
 
     if (showOptionalAdModal) {
@@ -473,6 +587,8 @@ private fun WellnessSheetContent(
             SheetMeter("Stress", life.stats.stress, MaterialTheme.colorScheme.error, Modifier.weight(1f))
             SheetMeter("Risk", life.stats.diseaseRisk, MaterialTheme.colorScheme.error, Modifier.weight(1f))
         }
+
+        MoodTrendsChartCard(life = life)
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 

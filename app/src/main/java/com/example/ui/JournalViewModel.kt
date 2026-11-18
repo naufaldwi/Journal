@@ -9,8 +9,11 @@ import com.example.engine.LifeEngine
 import com.example.engine.MissionOutcome
 import com.example.engine.StreamOutcome
 import com.example.model.AvatarAppearance
+import com.example.model.BondCategory
 import com.example.model.CareerTrack
+import com.example.model.CharacterGender
 import com.example.model.ChoiceOption
+import com.example.model.DailyEventChoice
 import com.example.model.DietPlan
 import com.example.model.EducationType
 import com.example.model.ExerciseRoutine
@@ -19,9 +22,13 @@ import com.example.model.LifeState
 import com.example.model.LifeStats
 import com.example.model.LeaderboardEntryDoc
 import com.example.model.MissionType
+import com.example.model.RelationshipPriority
+import com.example.model.RomanceMethod
+import com.example.model.RomanceOrientation
 import com.example.model.SkillActivity
 import com.example.model.SleepSchedule
 import com.example.model.SocialNiche
+import com.example.model.SocialPostTopic
 import com.example.model.StreamFormat
 import com.example.model.TemperamentTrait
 import com.example.model.UserProfileDoc
@@ -111,7 +118,10 @@ class JournalViewModel(
         val rawEffectiveLife = active
             ?: base.cloudSaves.firstOrNull()?.toDomain()
             ?: base.guestLife
-        val effectiveLife = rawEffectiveLife?.let { LifeEngine.ensureDailyMissions(it) }
+        val effectiveLife = rawEffectiveLife
+            ?.let { LifeEngine.ensureDailyMissions(it) }
+            ?.let { LifeEngine.ensureGlobalNewsFeed(it) }
+            ?.let { LifeEngine.ensureMoodHistory(it) }
 
         JournalUiState(
             isGuest = currentUserId == null,
@@ -170,7 +180,8 @@ class JournalViewModel(
         pronouns: String,
         trait: TemperamentTrait,
         appearance: AvatarAppearance,
-        startingStats: LifeStats
+        startingStats: LifeStats,
+        gender: CharacterGender = CharacterGender.fromPronouns(pronouns)
     ) {
         val result = LifeEngine.createNewLife(
             characterName = characterName,
@@ -179,7 +190,8 @@ class JournalViewModel(
             pronouns = pronouns,
             trait = trait,
             appearance = appearance,
-            startingStats = startingStats
+            startingStats = startingStats,
+            gender = gender
         )
         _activeLife.value = result.updatedLife
         _showNewLifeWizard.value = false
@@ -442,6 +454,28 @@ class JournalViewModel(
         _statusMessage.value = composeActionMessage("Published content (+${result.sparklesEarned} ✦).", missionOut)
     }
 
+    fun postToSocialStream(topic: SocialPostTopic, message: String) {
+        val current = uiState.value.activeLife ?: return
+        if (!current.isAlive) return
+        val (result, msg) = LifeEngine.postToSocialStream(
+            life = current,
+            topic = topic,
+            customMessage = message
+        )
+        if (result.updatedLife != current) {
+            val missionOut = LifeEngine.progressMissionByType(result.updatedLife, MissionType.POST_SOCIAL)
+            _activeLife.value = missionOut.updatedLife
+            persistLifeAndRewards(
+                missionOut.updatedLife,
+                result.newlyUnlockedAchievements,
+                result.sparklesEarned + missionOut.sparklesEarned
+            )
+            _statusMessage.value = composeActionMessage(msg, missionOut)
+        } else {
+            _statusMessage.value = msg
+        }
+    }
+
     fun interactWithFollowers(actionType: String) {
         val current = uiState.value.activeLife ?: return
         if (!current.isAlive) return
@@ -544,10 +578,10 @@ class JournalViewModel(
         )
     }
 
-    fun meetNewPerson(romantic: Boolean) {
+    fun meetNewPerson(category: BondCategory? = null) {
         val current = uiState.value.activeLife ?: return
         if (!current.isAlive) return
-        val result = LifeEngine.meetNewPerson(current, romantic)
+        val result = LifeEngine.meetNewPerson(current, category)
         val missionOut = LifeEngine.progressMissionByType(result.updatedLife, MissionType.CONNECT_BOND)
         _activeLife.value = missionOut.updatedLife
         persistLifeAndRewards(
@@ -559,6 +593,152 @@ class JournalViewModel(
             missionOut.updatedLife.entries.firstOrNull()?.title,
             missionOut
         )
+    }
+
+    fun dismissOrientationOnboarding() {
+        val current = uiState.value.activeLife ?: return
+        val updated = LifeEngine.dismissOrientationOnboarding(current)
+        if (updated != current) {
+            _activeLife.value = updated
+            persistLifeAndRewards(updated, emptySet(), 0)
+        }
+    }
+
+    fun setOrientation(orientation: RomanceOrientation) {
+        val current = uiState.value.activeLife ?: return
+        if (!current.isAlive) return
+        val result = LifeEngine.setOrientation(current, orientation)
+        _activeLife.value = result.updatedLife
+        persistLifeAndRewards(result.updatedLife, emptySet(), 0)
+        _statusMessage.value = "Orientation set to ${orientation.label}."
+    }
+
+    fun seekRomance(method: RomanceMethod, friendId: String? = null) {
+        val current = uiState.value.activeLife ?: return
+        if (!current.isAlive) return
+        val (result, msg) = LifeEngine.seekRomance(
+            life = current,
+            method = method,
+            friendId = friendId
+        )
+        if (result.updatedLife != current) {
+            val missionOut = LifeEngine.progressMissionByType(result.updatedLife, MissionType.CONNECT_BOND)
+            _activeLife.value = missionOut.updatedLife
+            persistLifeAndRewards(
+                missionOut.updatedLife,
+                result.newlyUnlockedAchievements,
+                result.sparklesEarned + missionOut.sparklesEarned
+            )
+            _statusMessage.value = composeActionMessage(msg, missionOut)
+        } else {
+            _statusMessage.value = msg
+        }
+    }
+
+    fun breakUpWithPartner(relId: String) {
+        val current = uiState.value.activeLife ?: return
+        if (!current.isAlive) return
+        val result = LifeEngine.breakUpWithPartner(current, relId)
+        if (result.updatedLife != current) {
+            _activeLife.value = result.updatedLife
+            persistLifeAndRewards(result.updatedLife, emptySet(), 0)
+            _statusMessage.value = result.updatedLife.entries.firstOrNull()?.title ?: "Ended relationship."
+        }
+    }
+
+    fun haveOrAdoptChild(partnerId: String? = null) {
+        val current = uiState.value.activeLife ?: return
+        if (!current.isAlive) return
+        val (result, msg) = LifeEngine.tryHaveOrAdoptChild(current, partnerId)
+        if (result.updatedLife != current) {
+            val missionOut = LifeEngine.progressMissionByType(result.updatedLife, MissionType.CONNECT_BOND)
+            _activeLife.value = missionOut.updatedLife
+            persistLifeAndRewards(
+                missionOut.updatedLife,
+                result.newlyUnlockedAchievements,
+                result.sparklesEarned + missionOut.sparklesEarned
+            )
+            _statusMessage.value = composeActionMessage(msg, missionOut)
+        } else {
+            _statusMessage.value = msg
+        }
+    }
+
+    fun triggerRandomEncounter() {
+        val current = uiState.value.activeLife ?: return
+        if (!current.isAlive) return
+        val result = LifeEngine.triggerRandomEncounter(current)
+        if (result.updatedLife != current) {
+            _activeLife.value = result.updatedLife
+            persistLifeAndRewards(result.updatedLife, result.newlyUnlockedAchievements, result.sparklesEarned)
+            _statusMessage.value = if (result.updatedLife.pendingPrompt != null) {
+                "Random encounter! Check your Journal prompt."
+            } else {
+                result.updatedLife.entries.firstOrNull()?.title ?: "Had a chance encounter."
+            }
+        }
+    }
+
+    fun setRelationshipPriority(relId: String, priority: RelationshipPriority) {
+        val current = uiState.value.activeLife ?: return
+        if (!current.isAlive) return
+        val updated = LifeEngine.setRelationshipPriority(current, relId, priority)
+        if (updated != current) {
+            _activeLife.value = updated
+            persistLifeAndRewards(updated, emptySet(), 0)
+            val targetName = updated.relationships.firstOrNull { it.id == relId }?.name ?: "Contact"
+            _statusMessage.value = "$targetName priority: ${priority.label}."
+        }
+    }
+
+    fun runPriorityBondBoost() {
+        val current = uiState.value.activeLife ?: return
+        if (!current.isAlive) return
+        val (result, msg) = LifeEngine.executePrioritizedBondBoost(current)
+        if (result.updatedLife != current) {
+            val missionOut = LifeEngine.progressMissionByType(result.updatedLife, MissionType.CONNECT_BOND)
+            _activeLife.value = missionOut.updatedLife
+            persistLifeAndRewards(
+                missionOut.updatedLife,
+                result.newlyUnlockedAchievements,
+                result.sparklesEarned + missionOut.sparklesEarned
+            )
+            _statusMessage.value = composeActionMessage(msg, missionOut)
+        } else {
+            _statusMessage.value = msg
+        }
+    }
+
+    fun checkDailyRandomEventIfNeeded() {
+        val current = uiState.value.activeLife ?: return
+        val updated = LifeEngine.checkDailyRandomEvent(current)
+        if (updated != current) {
+            _activeLife.value = updated
+            persistLifeAndRewards(updated, emptySet(), 0)
+        }
+    }
+
+    fun resolveDailyRandomEvent(choice: DailyEventChoice) {
+        val current = uiState.value.activeLife ?: return
+        val result = LifeEngine.resolveDailyRandomEvent(current, choice)
+        if (result.updatedLife != current) {
+            _activeLife.value = result.updatedLife
+            persistLifeAndRewards(
+                result.updatedLife,
+                result.newlyUnlockedAchievements,
+                result.sparklesEarned
+            )
+            _statusMessage.value = choice.outcomeSummary
+        }
+    }
+
+    fun dismissDailyRandomEvent() {
+        val current = uiState.value.activeLife ?: return
+        val updated = LifeEngine.dismissDailyRandomEvent(current)
+        if (updated != current) {
+            _activeLife.value = updated
+            persistLifeAndRewards(updated, emptySet(), 0)
+        }
     }
 
     fun completeDailyMission(missionId: String) {

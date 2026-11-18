@@ -27,6 +27,131 @@ enum class TemperamentTrait(val label: String, val summary: String) {
     AMBITIOUS("Ambitious", "+Faster promotions & higher creator payouts")
 }
 
+enum class CharacterGender(val label: String, val defaultPronouns: String) {
+    MALE("Male", "he/him"),
+    FEMALE("Female", "she/her"),
+    NON_BINARY("Non-binary", "they/them");
+
+    companion object {
+        fun fromPronouns(pronouns: String): CharacterGender = when {
+            pronouns.startsWith("he", ignoreCase = true) -> MALE
+            pronouns.startsWith("she", ignoreCase = true) -> FEMALE
+            else -> NON_BINARY
+        }
+    }
+}
+
+enum class RomanceOrientation(val label: String, val description: String) {
+    UNSET("Not Chosen", "Choose once before seeking romance"),
+    HETEROSEXUAL("Heterosexual", "Seek opposite-gender romantic matches"),
+    HOMOSEXUAL("Homosexual", "Seek same-gender romantic matches")
+}
+
+enum class RomanceMethod(val label: String, val minAge: Int, val summary: String) {
+    DATING_APP("Dating App", 18, "Match with locals nearby (18+ · rejection risk)"),
+    BLIND_DATE("Blind Date", 14, "Friend-arranged cafe or ice-cream meetup (14+ · may have no spark)"),
+    FRIEND_TO_PARTNER("Confess to Friend", 14, "Ask a close friend to date (14+ · risks bond if rejected)")
+}
+
+enum class BondCategory(val label: String) {
+    FAMILY("Family"),
+    FRIEND("Friend"),
+    SCHOOL("School"),
+    WORK("Work"),
+    ROMANCE("Romance"),
+    SOCIAL_CONTACT("Community")
+}
+
+enum class NewsCategory(val label: String) {
+    WAR_GEOPOLITICS("Conflict & Geopolitics"),
+    SCIENCE_TECH("Science & Breakthroughs"),
+    CULTURAL_SHIFT("Cultural Shift")
+}
+
+data class GlobalNewsItem(
+    val id: String,
+    val year: Int,
+    val region: String,
+    val category: NewsCategory,
+    val headline: String,
+    val summary: String,
+    val economyDelta: Float = 0f
+)
+
+data class MoodSnapshot(
+    val age: Int,
+    val year: Int,
+    val happiness: Int,
+    val stress: Int,
+    val anxiety: Int,
+    val careerStressLoad: Int = 0,
+    val hadRandomEncounter: Boolean = false,
+    val encounterLabel: String = ""
+)
+
+enum class SocialPostTopic(val label: String) {
+    LIFE("Life Update"),
+    CAREER("Career"),
+    RELATIONSHIP("Relationship")
+}
+
+data class SocialStreamComment(
+    val id: String,
+    val authorName: String,
+    val authorRelation: String,
+    val body: String,
+    val isSupportive: Boolean = true
+)
+
+data class SocialStreamPost(
+    val id: String,
+    val authorName: String,
+    val authorHandle: String,
+    val topic: SocialPostTopic,
+    val age: Int,
+    val year: Int,
+    val content: String,
+    val likes: Int,
+    val comments: List<SocialStreamComment> = emptyList()
+)
+
+enum class DailyEventCategory(val label: String) {
+    MONEY_FIND("Money Find"),
+    LOST_ITEM("Lost Item"),
+    OLD_ACQUAINTANCE("Old Acquaintance"),
+    DAILY_TWIST("Daily Twist")
+}
+
+data class DailyEventChoice(
+    val id: String,
+    val label: String,
+    val effectHint: String,
+    val outcomeSummary: String,
+    val cashDelta: Int = 0,
+    val happinessDelta: Int = 0,
+    val healthDelta: Int = 0,
+    val intellectDelta: Int = 0,
+    val creativityDelta: Int = 0,
+    val energyDelta: Int = 0,
+    val fitnessDelta: Int = 0,
+    val stressDelta: Int = 0,
+    val anxietyDelta: Int = 0,
+    val karmaDelta: Int = 0,
+    val newAcquaintanceName: String = "",
+    val acquaintanceRole: String = ""
+)
+
+data class DailyRandomEvent(
+    val id: String,
+    val dateKey: String,
+    val trait: TemperamentTrait,
+    val category: DailyEventCategory,
+    val title: String,
+    val narrative: String,
+    val isPositiveTone: Boolean = true,
+    val choices: List<DailyEventChoice> = emptyList()
+)
+
 enum class SkillType(val label: String, val tagline: String) {
     DEDUCTION_LAW("Deduction & Law", "Case logic, statutes & investigation"),
     ENGINEERING_TECH("Engineering & Logic", "Systems, math & technical design"),
@@ -478,6 +603,12 @@ data class SocialChannel(
     val currentTrendNiche: SocialNiche = SocialNiche.DAILY_VLOGGING
 )
 
+enum class RelationshipPriority(val label: String, val summary: String) {
+    STANDARD("Standard", "Normal annual bond tracking"),
+    INTERACTION("Interact", "Prioritized for check-ins & protected from silent neglect"),
+    GIFTING("Gift ($150)", "Prioritized for thoughtful gifting & annual bond boost")
+}
+
 data class Relationship(
     val id: String,
     val name: String,
@@ -486,11 +617,18 @@ data class Relationship(
     val closeness: Int,
     val isPartner: Boolean = false,
     val isSpouse: Boolean = false,
-    val isAlive: Boolean = true
+    val isAlive: Boolean = true,
+    val gender: CharacterGender = CharacterGender.FEMALE,
+    val category: BondCategory = BondCategory.FRIEND,
+    val interactedThisYear: Boolean = false,
+    val yearsNeglected: Int = 0,
+    val priority: RelationshipPriority = RelationshipPriority.STANDARD
 ) {
     val statusLabel: String
         get() = when {
             !isAlive -> "Remembered"
+            closeness < 15 -> "Despises You"
+            closeness < 25 -> "Hostile"
             isSpouse && closeness >= 80 -> "Devoted Spouse"
             isSpouse -> "Married"
             isPartner && closeness >= 80 -> "Committed Partner"
@@ -689,6 +827,9 @@ data class LifeState(
     val currentAge: Int = 0,
     val isAlive: Boolean = true,
     val pronouns: String = "they/them",
+    val gender: CharacterGender = CharacterGender.NON_BINARY,
+    val orientation: RomanceOrientation = RomanceOrientation.UNSET,
+    val orientationPromptShown: Boolean = false,
     val trait: TemperamentTrait = TemperamentTrait.CURIOUS,
     val appearance: AvatarAppearance = AvatarAppearance(),
     val stats: LifeStats = LifeStats(),
@@ -719,6 +860,11 @@ data class LifeState(
     val socialChannel: SocialChannel = SocialChannel(),
     val relationships: List<Relationship> = emptyList(),
     val entries: List<JournalEntry> = emptyList(),
+    val globalNewsFeed: List<GlobalNewsItem> = emptyList(),
+    val moodHistory: List<MoodSnapshot> = emptyList(),
+    val socialFeed: List<SocialStreamPost> = emptyList(),
+    val lastDailyEventDateKey: String = "",
+    val pendingDailyEvent: DailyRandomEvent? = null,
     val pendingPrompt: LifeChoicePrompt? = null,
     val unlockedAchievementIds: Set<String> = emptySet(),
     val epitaph: String = "",
@@ -728,6 +874,16 @@ data class LifeState(
 ) {
     val currentYear: Int get() = birthYear + currentAge
     val lifeStage: LifeStage get() = LifeStage.fromAge(currentAge)
+    val hateCount: Int get() = relationships.count { it.isAlive && it.closeness < 25 }
+    val isMiserableFromHatred: Boolean get() = hateCount >= 3
+    val schoolWorkBonds: List<Relationship>
+        get() = relationships.filter { it.isAlive && (it.category == BondCategory.SCHOOL || it.category == BondCategory.WORK) }
+    val professionalStanding: Int
+        get() = if (schoolWorkBonds.isEmpty()) 60 else schoolWorkBonds.sumOf { it.closeness } / schoolWorkBonds.size
+    val activePartnerCount: Int
+        get() = relationships.count { it.isAlive && (it.isPartner || it.isSpouse) }
+    val childrenCount: Int
+        get() = relationships.count { it.role == "Child" }
 
     val currentCareerTitle: String
         get() = when {
@@ -900,9 +1056,88 @@ fun LifeState.toFirestorePayload(uid: String): Map<String, Any> = mapOf(
                 "backdropIndex" to anc.appearance.backdropIndex.toLong()
             )
         },
+        "gender" to gender.name,
+        "orientation" to orientation.name,
+        "orientationPromptShown" to orientationPromptShown,
+        "globalNewsFeed" to globalNewsFeed.take(25).map { news ->
+            mapOf(
+                "id" to news.id,
+                "year" to news.year.toLong(),
+                "region" to news.region.take(50),
+                "category" to news.category.name,
+                "headline" to news.headline.take(100),
+                "summary" to news.summary.take(220),
+                "economyDelta" to news.economyDelta.toDouble()
+            )
+        },
+        "moodHistory" to moodHistory.takeLast(10).map { snap ->
+            mapOf(
+                "age" to snap.age.toLong(),
+                "year" to snap.year.toLong(),
+                "happiness" to snap.happiness.toLong(),
+                "stress" to snap.stress.toLong(),
+                "anxiety" to snap.anxiety.toLong(),
+                "careerStressLoad" to snap.careerStressLoad.toLong(),
+                "hadRandomEncounter" to snap.hadRandomEncounter,
+                "encounterLabel" to snap.encounterLabel.take(80)
+            )
+        },
+        "socialFeed" to socialFeed.take(20).map { post ->
+            mapOf(
+                "id" to post.id,
+                "authorName" to post.authorName.take(60),
+                "authorHandle" to post.authorHandle.take(40),
+                "topic" to post.topic.name,
+                "age" to post.age.toLong(),
+                "year" to post.year.toLong(),
+                "content" to post.content.take(220),
+                "likes" to post.likes.toLong(),
+                "comments" to post.comments.take(5).map { c ->
+                    mapOf(
+                        "id" to c.id,
+                        "authorName" to c.authorName.take(60),
+                        "authorRelation" to c.authorRelation.take(40),
+                        "body" to c.body.take(180),
+                        "isSupportive" to c.isSupportive
+                    )
+                }
+            )
+        },
         "missionDateKey" to missionState.dateKey.take(20),
         "missionTotalXp" to missionState.totalXp.toLong(),
         "missionBonusClaimed" to missionState.dailyBonusClaimed,
+        "lastDailyEventDateKey" to lastDailyEventDateKey.take(20),
+        "pendingDailyEvent" to (pendingDailyEvent?.let { ev ->
+            mapOf(
+                "id" to ev.id,
+                "dateKey" to ev.dateKey,
+                "trait" to ev.trait.name,
+                "category" to ev.category.name,
+                "title" to ev.title.take(100),
+                "narrative" to ev.narrative.take(260),
+                "isPositiveTone" to ev.isPositiveTone,
+                "choices" to ev.choices.take(3).map { ch ->
+                    mapOf(
+                        "id" to ch.id,
+                        "label" to ch.label.take(60),
+                        "effectHint" to ch.effectHint.take(90),
+                        "outcomeSummary" to ch.outcomeSummary.take(200),
+                        "cashDelta" to ch.cashDelta.toLong(),
+                        "happinessDelta" to ch.happinessDelta.toLong(),
+                        "healthDelta" to ch.healthDelta.toLong(),
+                        "intellectDelta" to ch.intellectDelta.toLong(),
+                        "creativityDelta" to ch.creativityDelta.toLong(),
+                        "energyDelta" to ch.energyDelta.toLong(),
+                        "fitnessDelta" to ch.fitnessDelta.toLong(),
+                        "stressDelta" to ch.stressDelta.toLong(),
+                        "anxietyDelta" to ch.anxietyDelta.toLong(),
+                        "karmaDelta" to ch.karmaDelta.toLong(),
+                        "newAcquaintanceName" to ch.newAcquaintanceName.take(60),
+                        "acquaintanceRole" to ch.acquaintanceRole.take(40)
+                    )
+                }
+            )
+        } ?: emptyMap<String, Any>()),
         "dailyMissions" to missionState.missions.take(5).map { m ->
             mapOf(
                 "id" to m.id,
@@ -947,7 +1182,12 @@ fun LifeState.toFirestorePayload(uid: String): Map<String, Any> = mapOf(
             "closeness" to rel.closeness.toLong(),
             "isPartner" to rel.isPartner,
             "isSpouse" to rel.isSpouse,
-            "isAlive" to rel.isAlive
+            "isAlive" to rel.isAlive,
+            "gender" to rel.gender.name,
+            "category" to rel.category.name,
+            "interactedThisYear" to rel.interactedThisYear,
+            "yearsNeglected" to rel.yearsNeglected.toLong(),
+            "priority" to rel.priority.name
         )
     },
     "recentEntries" to entries.take(150).map { entry ->
@@ -988,6 +1228,15 @@ fun LifeSaveDoc.toDomain(): LifeState {
     val parsedTrendNiche = runCatching { SocialNiche.valueOf(chMap.strVal("currentTrendNiche", SocialNiche.DAILY_VLOGGING.name)) }.getOrDefault(SocialNiche.DAILY_VLOGGING)
 
     val parsedRels = relationships.mapIndexed { idx, map ->
+        val parsedGender = runCatching {
+            CharacterGender.valueOf(map.strVal("gender", CharacterGender.FEMALE.name))
+        }.getOrDefault(CharacterGender.FEMALE)
+        val parsedCat = runCatching {
+            BondCategory.valueOf(map.strVal("category", BondCategory.FRIEND.name))
+        }.getOrDefault(BondCategory.FRIEND)
+        val parsedPriority = runCatching {
+            RelationshipPriority.valueOf(map.strVal("priority", RelationshipPriority.STANDARD.name))
+        }.getOrDefault(RelationshipPriority.STANDARD)
         Relationship(
             id = map.strVal("id", "rel_$idx"),
             name = map.strVal("name", "Companion"),
@@ -996,7 +1245,12 @@ fun LifeSaveDoc.toDomain(): LifeState {
             closeness = map.intVal("closeness", 60),
             isPartner = map.boolVal("isPartner", false),
             isSpouse = map.boolVal("isSpouse", false),
-            isAlive = map.boolVal("isAlive", true)
+            isAlive = map.boolVal("isAlive", true),
+            gender = parsedGender,
+            category = parsedCat,
+            interactedThisYear = map.boolVal("interactedThisYear", false),
+            yearsNeglected = map.intVal("yearsNeglected", 0),
+            priority = parsedPriority
         )
     }
 
@@ -1013,6 +1267,119 @@ fun LifeSaveDoc.toDomain(): LifeState {
         )
     }
 
+    val parsedNewsFeed = ((statsMap["globalNewsFeed"] as? List<*>) ?: emptyList<Any>()).mapNotNull { raw ->
+        @Suppress("UNCHECKED_CAST")
+        val typed = raw as? Map<String, Any> ?: return@mapNotNull null
+        val newsCat = runCatching {
+            NewsCategory.valueOf(typed.strVal("category", NewsCategory.CULTURAL_SHIFT.name))
+        }.getOrDefault(NewsCategory.CULTURAL_SHIFT)
+        GlobalNewsItem(
+            id = typed.strVal("id", "news_${typed.intVal("year", birthYear.toInt())}"),
+            year = typed.intVal("year", birthYear.toInt()),
+            region = typed.strVal("region", "Global"),
+            category = newsCat,
+            headline = typed.strVal("headline", "Global Dispatch"),
+            summary = typed.strVal("summary", ""),
+            economyDelta = ((typed["economyDelta"] as? Number)?.toFloat()) ?: 0f
+        )
+    }
+
+    val parsedMoodHistory = ((statsMap["moodHistory"] as? List<*>) ?: emptyList<Any>()).mapNotNull { raw ->
+        @Suppress("UNCHECKED_CAST")
+        val typed = raw as? Map<String, Any> ?: return@mapNotNull null
+        MoodSnapshot(
+            age = typed.intVal("age", 0),
+            year = typed.intVal("year", birthYear.toInt()),
+            happiness = typed.intVal("happiness", 80),
+            stress = typed.intVal("stress", 15),
+            anxiety = typed.intVal("anxiety", 10),
+            careerStressLoad = typed.intVal("careerStressLoad", 0),
+            hadRandomEncounter = typed.boolVal("hadRandomEncounter", false),
+            encounterLabel = typed.strVal("encounterLabel", "")
+        )
+    }
+
+    val parsedSocialFeed = ((statsMap["socialFeed"] as? List<*>) ?: emptyList<Any>()).mapNotNull { raw ->
+        @Suppress("UNCHECKED_CAST")
+        val typed = raw as? Map<String, Any> ?: return@mapNotNull null
+        val topic = runCatching {
+            SocialPostTopic.valueOf(typed.strVal("topic", SocialPostTopic.LIFE.name))
+        }.getOrDefault(SocialPostTopic.LIFE)
+        val comments = ((typed["comments"] as? List<*>) ?: emptyList<Any>()).mapIndexedNotNull { cIdx, cRaw ->
+            @Suppress("UNCHECKED_CAST")
+            val cMap = cRaw as? Map<String, Any> ?: return@mapIndexedNotNull null
+            SocialStreamComment(
+                id = cMap.strVal("id", "sc_$cIdx"),
+                authorName = cMap.strVal("authorName", "Friend"),
+                authorRelation = cMap.strVal("authorRelation", "Follower"),
+                body = cMap.strVal("body", ""),
+                isSupportive = cMap.boolVal("isSupportive", true)
+            )
+        }
+        SocialStreamPost(
+            id = typed.strVal("id", "post_${typed.intVal("age", 0)}"),
+            authorName = typed.strVal("authorName", characterName),
+            authorHandle = typed.strVal("authorHandle", "@journaler"),
+            topic = topic,
+            age = typed.intVal("age", 0),
+            year = typed.intVal("year", birthYear.toInt()),
+            content = typed.strVal("content", ""),
+            likes = typed.intVal("likes", 0),
+            comments = comments
+        )
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    val pendingDailyEventMap = (statsMap["pendingDailyEvent"] as? Map<String, Any>)?.takeIf { it.isNotEmpty() }
+    val parsedPendingDailyEvent = pendingDailyEventMap?.let { evMap ->
+        val evTrait = runCatching {
+            TemperamentTrait.valueOf(evMap.strVal("trait", parsedTrait.name))
+        }.getOrDefault(parsedTrait)
+        val evCat = runCatching {
+            DailyEventCategory.valueOf(evMap.strVal("category", DailyEventCategory.DAILY_TWIST.name))
+        }.getOrDefault(DailyEventCategory.DAILY_TWIST)
+        val choices = ((evMap["choices"] as? List<*>) ?: emptyList<Any>()).mapIndexedNotNull { cIdx, cRaw ->
+            @Suppress("UNCHECKED_CAST")
+            val cm = cRaw as? Map<String, Any> ?: return@mapIndexedNotNull null
+            DailyEventChoice(
+                id = cm.strVal("id", "dec_$cIdx"),
+                label = cm.strVal("label", "Respond"),
+                effectHint = cm.strVal("effectHint", ""),
+                outcomeSummary = cm.strVal("outcomeSummary", ""),
+                cashDelta = cm.intVal("cashDelta", 0),
+                happinessDelta = cm.intVal("happinessDelta", 0),
+                healthDelta = cm.intVal("healthDelta", 0),
+                intellectDelta = cm.intVal("intellectDelta", 0),
+                creativityDelta = cm.intVal("creativityDelta", 0),
+                energyDelta = cm.intVal("energyDelta", 0),
+                fitnessDelta = cm.intVal("fitnessDelta", 0),
+                stressDelta = cm.intVal("stressDelta", 0),
+                anxietyDelta = cm.intVal("anxietyDelta", 0),
+                karmaDelta = cm.intVal("karmaDelta", 0),
+                newAcquaintanceName = cm.strVal("newAcquaintanceName", ""),
+                acquaintanceRole = cm.strVal("acquaintanceRole", "")
+            )
+        }
+        DailyRandomEvent(
+            id = evMap.strVal("id", "daily_ev"),
+            dateKey = evMap.strVal("dateKey", ""),
+            trait = evTrait,
+            category = evCat,
+            title = evMap.strVal("title", "Daily Moment"),
+            narrative = evMap.strVal("narrative", ""),
+            isPositiveTone = evMap.boolVal("isPositiveTone", true),
+            choices = choices
+        )
+    }
+
+    val parsedGender = runCatching {
+        CharacterGender.valueOf(statsMap.strVal("gender", CharacterGender.fromPronouns(pronouns).name))
+    }.getOrDefault(CharacterGender.fromPronouns(pronouns))
+
+    val parsedOrientation = runCatching {
+        RomanceOrientation.valueOf(statsMap.strVal("orientation", RomanceOrientation.UNSET.name))
+    }.getOrDefault(RomanceOrientation.UNSET)
+
     return LifeState(
         lifeId = id,
         characterName = characterName,
@@ -1021,6 +1388,9 @@ fun LifeSaveDoc.toDomain(): LifeState {
         currentAge = currentAge.toInt(),
         isAlive = isAlive,
         pronouns = pronouns,
+        gender = parsedGender,
+        orientation = parsedOrientation,
+        orientationPromptShown = statsMap.boolVal("orientationPromptShown", parsedOrientation != RomanceOrientation.UNSET),
         trait = parsedTrait,
         appearance = AvatarAppearance(
             skinToneIndex = appMap.intVal("skinToneIndex", 2),
@@ -1142,6 +1512,11 @@ fun LifeSaveDoc.toDomain(): LifeState {
         ),
         relationships = parsedRels,
         entries = parsedEntries,
+        globalNewsFeed = parsedNewsFeed,
+        moodHistory = parsedMoodHistory,
+        socialFeed = parsedSocialFeed,
+        lastDailyEventDateKey = statsMap.strVal("lastDailyEventDateKey", ""),
+        pendingDailyEvent = parsedPendingDailyEvent,
         unlockedAchievementIds = achievedIds.toSet(),
         epitaph = epitaph
     )

@@ -10,22 +10,35 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.model.AncestorRecord
 import com.example.model.AvatarAppearance
+import com.example.model.BondCategory
 import com.example.model.CareerTrack
+import com.example.model.CharacterGender
 import com.example.model.CharacterSkills
+import com.example.model.DailyEventCategory
+import com.example.model.DailyEventChoice
 import com.example.model.DailyMission
 import com.example.model.DailyMissionState
+import com.example.model.DailyRandomEvent
 import com.example.model.DietPlan
 import com.example.model.EducationType
 import com.example.model.EntryCategory
 import com.example.model.ExerciseRoutine
+import com.example.model.GlobalNewsItem
 import com.example.model.JournalEntry
 import com.example.model.LifeState
 import com.example.model.LifeStats
 import com.example.model.MissionType
+import com.example.model.MoodSnapshot
+import com.example.model.NewsCategory
 import com.example.model.Relationship
+import com.example.model.RelationshipPriority
+import com.example.model.RomanceOrientation
 import com.example.model.SleepSchedule
 import com.example.model.SocialChannel
 import com.example.model.SocialNiche
+import com.example.model.SocialPostTopic
+import com.example.model.SocialStreamComment
+import com.example.model.SocialStreamPost
 import com.example.model.TemperamentTrait
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -152,6 +165,9 @@ class LocalGuestRepository(private val context: Context) {
         root.put("currentAge", life.currentAge)
         root.put("isAlive", life.isAlive)
         root.put("pronouns", life.pronouns)
+        root.put("gender", life.gender.name)
+        root.put("orientation", life.orientation.name)
+        root.put("orientationPromptShown", life.orientationPromptShown)
         root.put("trait", life.trait.name)
         root.put("netWorth", life.netWorth)
         root.put("loanDebt", life.loanDebt)
@@ -178,6 +194,41 @@ class LocalGuestRepository(private val context: Context) {
         root.put("deathCause", life.deathCause)
         root.put("economyMultiplier", life.economyMultiplier.toDouble())
         root.put("endOfLifeAdClaimed", life.endOfLifeAdClaimed)
+        root.put("lastDailyEventDateKey", life.lastDailyEventDateKey)
+        if (life.pendingDailyEvent != null) {
+            val ev = life.pendingDailyEvent
+            root.put("pendingDailyEvent", JSONObject().apply {
+                put("id", ev.id)
+                put("dateKey", ev.dateKey)
+                put("trait", ev.trait.name)
+                put("category", ev.category.name)
+                put("title", ev.title)
+                put("narrative", ev.narrative)
+                put("isPositiveTone", ev.isPositiveTone)
+                put("choices", JSONArray().apply {
+                    ev.choices.forEach { ch ->
+                        put(JSONObject().apply {
+                            put("id", ch.id)
+                            put("label", ch.label)
+                            put("effectHint", ch.effectHint)
+                            put("outcomeSummary", ch.outcomeSummary)
+                            put("cashDelta", ch.cashDelta)
+                            put("happinessDelta", ch.happinessDelta)
+                            put("healthDelta", ch.healthDelta)
+                            put("intellectDelta", ch.intellectDelta)
+                            put("creativityDelta", ch.creativityDelta)
+                            put("energyDelta", ch.energyDelta)
+                            put("fitnessDelta", ch.fitnessDelta)
+                            put("stressDelta", ch.stressDelta)
+                            put("anxietyDelta", ch.anxietyDelta)
+                            put("karmaDelta", ch.karmaDelta)
+                            put("newAcquaintanceName", ch.newAcquaintanceName)
+                            put("acquaintanceRole", ch.acquaintanceRole)
+                        })
+                    }
+                })
+            })
+        }
 
         root.put("lineageHistory", JSONArray().apply {
             life.lineageHistory.forEach { anc ->
@@ -288,6 +339,11 @@ class LocalGuestRepository(private val context: Context) {
                     put("isPartner", rel.isPartner)
                     put("isSpouse", rel.isSpouse)
                     put("isAlive", rel.isAlive)
+                    put("gender", rel.gender.name)
+                    put("category", rel.category.name)
+                    put("interactedThisYear", rel.interactedThisYear)
+                    put("yearsNeglected", rel.yearsNeglected)
+                    put("priority", rel.priority.name)
                 })
             }
         })
@@ -301,6 +357,61 @@ class LocalGuestRepository(private val context: Context) {
                     put("category", entry.category.name)
                     put("title", entry.title)
                     put("detail", entry.detail)
+                })
+            }
+        })
+
+        root.put("globalNewsFeed", JSONArray().apply {
+            life.globalNewsFeed.take(25).forEach { news ->
+                put(JSONObject().apply {
+                    put("id", news.id)
+                    put("year", news.year)
+                    put("region", news.region)
+                    put("category", news.category.name)
+                    put("headline", news.headline)
+                    put("summary", news.summary)
+                    put("economyDelta", news.economyDelta.toDouble())
+                })
+            }
+        })
+
+        root.put("moodHistory", JSONArray().apply {
+            life.moodHistory.takeLast(10).forEach { snap ->
+                put(JSONObject().apply {
+                    put("age", snap.age)
+                    put("year", snap.year)
+                    put("happiness", snap.happiness)
+                    put("stress", snap.stress)
+                    put("anxiety", snap.anxiety)
+                    put("careerStressLoad", snap.careerStressLoad)
+                    put("hadRandomEncounter", snap.hadRandomEncounter)
+                    put("encounterLabel", snap.encounterLabel)
+                })
+            }
+        })
+
+        root.put("socialFeed", JSONArray().apply {
+            life.socialFeed.take(20).forEach { post ->
+                put(JSONObject().apply {
+                    put("id", post.id)
+                    put("authorName", post.authorName)
+                    put("authorHandle", post.authorHandle)
+                    put("topic", post.topic.name)
+                    put("age", post.age)
+                    put("year", post.year)
+                    put("content", post.content)
+                    put("likes", post.likes)
+                    put("comments", JSONArray().apply {
+                        post.comments.take(5).forEach { c ->
+                            put(JSONObject().apply {
+                                put("id", c.id)
+                                put("authorName", c.authorName)
+                                put("authorRelation", c.authorRelation)
+                                put("body", c.body)
+                                put("isSupportive", c.isSupportive)
+                            })
+                        }
+                    })
                 })
             }
         })
@@ -330,7 +441,18 @@ class LocalGuestRepository(private val context: Context) {
                         closeness = o.getInt("closeness"),
                         isPartner = o.optBoolean("isPartner", false),
                         isSpouse = o.optBoolean("isSpouse", false),
-                        isAlive = o.optBoolean("isAlive", true)
+                        isAlive = o.optBoolean("isAlive", true),
+                        gender = runCatching {
+                            CharacterGender.valueOf(o.optString("gender", CharacterGender.FEMALE.name))
+                        }.getOrDefault(CharacterGender.FEMALE),
+                        category = runCatching {
+                            BondCategory.valueOf(o.optString("category", BondCategory.FRIEND.name))
+                        }.getOrDefault(BondCategory.FRIEND),
+                        interactedThisYear = o.optBoolean("interactedThisYear", false),
+                        yearsNeglected = o.optInt("yearsNeglected", 0),
+                        priority = runCatching {
+                            RelationshipPriority.valueOf(o.optString("priority", RelationshipPriority.STANDARD.name))
+                        }.getOrDefault(RelationshipPriority.STANDARD)
                     )
                 )
             }
@@ -447,6 +569,142 @@ class LocalGuestRepository(private val context: Context) {
             persuasionMedia = skObj?.optInt("persuasionMedia", 18) ?: 18
         )
 
+        val newsFeed = buildList {
+            val nArr = root.optJSONArray("globalNewsFeed")
+            if (nArr != null) {
+                for (i in 0 until nArr.length()) {
+                    val o = nArr.getJSONObject(i)
+                    add(
+                        GlobalNewsItem(
+                            id = o.optString("id", "news_$i"),
+                            year = o.optInt("year", root.getInt("birthYear")),
+                            region = o.optString("region", "Global"),
+                            category = runCatching {
+                                NewsCategory.valueOf(o.optString("category", NewsCategory.CULTURAL_SHIFT.name))
+                            }.getOrDefault(NewsCategory.CULTURAL_SHIFT),
+                            headline = o.optString("headline", "Global Dispatch"),
+                            summary = o.optString("summary", ""),
+                            economyDelta = o.optDouble("economyDelta", 0.0).toFloat()
+                        )
+                    )
+                }
+            }
+        }
+
+        val moodHistory = buildList {
+            val mArr = root.optJSONArray("moodHistory")
+            if (mArr != null) {
+                for (i in 0 until mArr.length()) {
+                    val o = mArr.getJSONObject(i)
+                    add(
+                        MoodSnapshot(
+                            age = o.optInt("age", 0),
+                            year = o.optInt("year", root.getInt("birthYear")),
+                            happiness = o.optInt("happiness", 80),
+                            stress = o.optInt("stress", 15),
+                            anxiety = o.optInt("anxiety", 10),
+                            careerStressLoad = o.optInt("careerStressLoad", 0),
+                            hadRandomEncounter = o.optBoolean("hadRandomEncounter", false),
+                            encounterLabel = o.optString("encounterLabel", "")
+                        )
+                    )
+                }
+            }
+        }
+
+        val socialFeed = buildList {
+            val sArr = root.optJSONArray("socialFeed")
+            if (sArr != null) {
+                for (i in 0 until sArr.length()) {
+                    val o = sArr.getJSONObject(i)
+                    val cArr = o.optJSONArray("comments")
+                    val comments = buildList {
+                        if (cArr != null) {
+                            for (j in 0 until cArr.length()) {
+                                val co = cArr.getJSONObject(j)
+                                add(
+                                    SocialStreamComment(
+                                        id = co.optString("id", "sc_${i}_$j"),
+                                        authorName = co.optString("authorName", "Friend"),
+                                        authorRelation = co.optString("authorRelation", "Follower"),
+                                        body = co.optString("body", ""),
+                                        isSupportive = co.optBoolean("isSupportive", true)
+                                    )
+                                )
+                            }
+                        }
+                    }
+                    add(
+                        SocialStreamPost(
+                            id = o.optString("id", "post_$i"),
+                            authorName = o.optString("authorName", root.getString("characterName")),
+                            authorHandle = o.optString("authorHandle", "@journaler"),
+                            topic = runCatching {
+                                SocialPostTopic.valueOf(o.optString("topic", SocialPostTopic.LIFE.name))
+                            }.getOrDefault(SocialPostTopic.LIFE),
+                            age = o.optInt("age", 0),
+                            year = o.optInt("year", root.getInt("birthYear")),
+                            content = o.optString("content", ""),
+                            likes = o.optInt("likes", 0),
+                            comments = comments
+                        )
+                    )
+                }
+            }
+        }
+
+        val dailyEvObj = root.optJSONObject("pendingDailyEvent")
+        val decodedDailyEvent = dailyEvObj?.let { o ->
+            val cArr = o.optJSONArray("choices")
+            val choices = buildList {
+                if (cArr != null) {
+                    for (i in 0 until cArr.length()) {
+                        val co = cArr.getJSONObject(i)
+                        add(
+                            DailyEventChoice(
+                                id = co.optString("id", "dec_$i"),
+                                label = co.optString("label", "Respond"),
+                                effectHint = co.optString("effectHint", ""),
+                                outcomeSummary = co.optString("outcomeSummary", ""),
+                                cashDelta = co.optInt("cashDelta", 0),
+                                happinessDelta = co.optInt("happinessDelta", 0),
+                                healthDelta = co.optInt("healthDelta", 0),
+                                intellectDelta = co.optInt("intellectDelta", 0),
+                                creativityDelta = co.optInt("creativityDelta", 0),
+                                energyDelta = co.optInt("energyDelta", 0),
+                                fitnessDelta = co.optInt("fitnessDelta", 0),
+                                stressDelta = co.optInt("stressDelta", 0),
+                                anxietyDelta = co.optInt("anxietyDelta", 0),
+                                karmaDelta = co.optInt("karmaDelta", 0),
+                                newAcquaintanceName = co.optString("newAcquaintanceName", ""),
+                                acquaintanceRole = co.optString("acquaintanceRole", "")
+                            )
+                        )
+                    }
+                }
+            }
+            DailyRandomEvent(
+                id = o.optString("id", "daily_ev"),
+                dateKey = o.optString("dateKey", ""),
+                trait = runCatching { TemperamentTrait.valueOf(o.optString("trait", TemperamentTrait.CURIOUS.name)) }
+                    .getOrDefault(TemperamentTrait.CURIOUS),
+                category = runCatching { DailyEventCategory.valueOf(o.optString("category", DailyEventCategory.DAILY_TWIST.name)) }
+                    .getOrDefault(DailyEventCategory.DAILY_TWIST),
+                title = o.optString("title", "Daily Moment"),
+                narrative = o.optString("narrative", ""),
+                isPositiveTone = o.optBoolean("isPositiveTone", true),
+                choices = choices
+            )
+        }
+
+        val pronounsVal = root.optString("pronouns", "they/them")
+        val decodedGender = runCatching {
+            CharacterGender.valueOf(root.optString("gender", CharacterGender.fromPronouns(pronounsVal).name))
+        }.getOrDefault(CharacterGender.fromPronouns(pronounsVal))
+        val decodedOrientation = runCatching {
+            RomanceOrientation.valueOf(root.optString("orientation", RomanceOrientation.UNSET.name))
+        }.getOrDefault(RomanceOrientation.UNSET)
+
         return LifeState(
             lifeId = root.getString("lifeId"),
             characterName = root.getString("characterName"),
@@ -454,7 +712,10 @@ class LocalGuestRepository(private val context: Context) {
             birthYear = root.getInt("birthYear"),
             currentAge = root.getInt("currentAge"),
             isAlive = root.getBoolean("isAlive"),
-            pronouns = root.optString("pronouns", "they/them"),
+            pronouns = pronounsVal,
+            gender = decodedGender,
+            orientation = decodedOrientation,
+            orientationPromptShown = root.optBoolean("orientationPromptShown", decodedOrientation != RomanceOrientation.UNSET),
             trait = runCatching { TemperamentTrait.valueOf(root.getString("trait")) }
                 .getOrDefault(TemperamentTrait.CURIOUS),
             appearance = AvatarAppearance(
@@ -520,6 +781,11 @@ class LocalGuestRepository(private val context: Context) {
             ),
             relationships = rels,
             entries = entries,
+            globalNewsFeed = newsFeed,
+            moodHistory = moodHistory,
+            socialFeed = socialFeed,
+            lastDailyEventDateKey = root.optString("lastDailyEventDateKey", ""),
+            pendingDailyEvent = decodedDailyEvent,
             unlockedAchievementIds = achs,
             epitaph = root.optString("epitaph", ""),
             deathCause = root.optString("deathCause", ""),
